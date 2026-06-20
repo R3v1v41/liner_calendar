@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 多设备同步调试工具</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: "PingFang SC", monospace; background: #0f1a2a; color: #e0e0e0; padding: 20px; }
+        h1 { color: #6af; font-size: 20px; margin-bottom: 8px; }
+        .sub { color: #888; font-size: 12px; margin-bottom: 16px; }
+        .panel {
+            background: #1a2a3a; border-radius: 10px; padding: 16px;
+            margin-bottom: 14px; border: 1px solid #2a3a5a;
+        }
+        .panel h3 { font-size: 14px; color: #6af; margin-bottom: 10px; }
+        button {
+            background: #2a4a6a; color: #c0d0e0; border: none;
+            padding: 6px 14px; border-radius: 6px; cursor: pointer;
+            font-size: 12px; font-family: inherit; margin: 3px;
+            transition: background 0.15s;
+        }
+        button:hover { background: #3a5a7a; }
+        button.danger { background: #6a2a2a; }
+        button.danger:hover { background: #8a3a3a; }
+        button.success { background: #2a5a3a; }
+        button.success:hover { background: #3a6a4a; }
+        .log-area {
+            background: #0a1220; border-radius: 8px; padding: 12px;
+            max-height: 500px; overflow-y: auto; font-size: 11px;
+            font-family: "Cascadia Code", "Consolas", monospace;
+            line-height: 1.6; white-space: pre-wrap; word-break: break-all;
+        }
+        .log-entry { margin: 2px 0; }
+        .log-info { color: #6af; }
+        .log-warn { color: #fa6; }
+        .log-error { color: #f66; }
+        .log-success { color: #6f6; }
+        .log-device { color: #f9f; }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 8px; }
+        .stat-item { background: #0a1220; padding: 8px 12px; border-radius: 6px; }
+        .stat-item .label { font-size: 10px; color: #888; }
+        .stat-item .value { font-size: 15px; font-weight: 700; color: #6af; }
+        input { background: #0a1220; border: 1px solid #2a3a5a; color: #e0e0e0; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-family: inherit; width: 100%; margin: 3px 0; }
+    </style>
+</head>
+<body>
+    <h1>🔧 多设备同步调试工具</h1>
+    <p class="sub">模拟4台设备场景，测试WebDAV同步逻辑 | 当前设备: <span id="currentDevice" style="color:#6af;"></span></p>
+
+    <!-- 状态面板 -->
+    <div class="panel">
+        <h3>📊 本地状态</h3>
+        <div class="stat-grid" id="statGrid">
+            <div class="stat-item"><div class="label">设备ID</div><div class="value" id="statDeviceId">-</div></div>
+            <div class="stat-item"><div class="label">日程总数</div><div class="value" id="statTasks">-</div></div>
+            <div class="stat-item"><div class="label">WebDAV配置</div><div class="value" id="statWebdav">-</div></div>
+            <div class="stat-item"><div class="label">云端版本</div><div class="value" id="statVersion">-</div></div>
+            <div class="stat-item"><div class="label">ETag锁</div><div class="value" id="statEtag">-</div></div>
+            <div class="stat-item"><div class="label">localStorage键</div><div class="value" id="statKeys">-</div></div>
+        </div>
+        <button onclick="refreshStatus()">🔄 刷新状态</button>
+        <button onclick="dumpLocalStorage()">📋 导出localStorage</button>
+        <button class="danger" onclick="clearAllData()">⚠️ 清除所有数据</button>
+    </div>
+
+    <!-- 模拟测试面板 -->
+    <div class="panel">
+        <h3>🧪 多设备模拟测试</h3>
+        <p style="font-size:11px;color:#888;margin-bottom:8px;">
+            模拟4台设备在不同时间创建日程，测试合并算法是否正确
+        </p>
+        <button class="success" onclick="testScenario1()">📋 场景1: 设备A创建5条 → 设备B创建3条 → 合并</button>
+        <button class="success" onclick="testScenario2()">📋 场景2: 4台设备各创建2条 → 合并</button>
+        <button class="success" onclick="testScenario3()">📋 场景3: 设备A修改 → 设备B同时修改 → 冲突</button>
+        <button class="success" onclick="testScenario4()">📋 场景4: 设备B空数据不应覆盖云端数据</button>
+        <button class="success" onclick="testScenario5()">📋 场景5: 4设备并发修改同一任务</button>
+        <button onclick="testProxyConnection()">🔗 测试代理连接</button>
+    </div>
+
+    <!-- 日志 -->
+    <div class="panel">
+        <h3>📜 调试日志</h3>
+        <button onclick="clearLogs()">🗑️ 清空日志</button>
+        <div class="log-area" id="logArea"></div>
+    </div>
+
+    <script>
+        // ============================================================
+        // 核心算法（从 index.html 复刻，独立运行）
+        // ============================================================
+        function generateId() { return 'id_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 6); }
+        function getNowISO() { return new Date().toISOString(); }
+
+        function mergeTasksMultiDevice(cloudTasks, localTasks) {
+            var taskMap = {};
+            var now = getNowISO();
+            var conflicts = [];
+
+            function normalize(task, source) {
+                var t = JSON.parse(JSON.stringify(task));
+                if (!t.updatedAt) t.updatedAt = now;
+                if (t.deleted === undefined) t.deleted = false;
+                if (t.text === undefined) t.text = '';
+                if (!t.color) t.color = 'pink';
+                if (!t.createdBy) t.createdBy = source || 'unknown';
+                if (!t.version) t.version = 1;
+                return t;
+            }
+
+            localTasks.forEach(function(t) {
+                if (t && t.id && t.startDate && t.endDate) {
+                    var task = normalize(t, t.createdBy || 'local');
+                    taskMap[task.id] = { task: task, source: 'local' };
+                }
+            });
+
+            cloudTasks.forEach(function(t) {
+                if (t && t.id && t.startDate && t.endDate) {
+                    var cloudTask = normalize(t, t.createdBy || 'cloud');
+
+                    if (!taskMap[cloudTask.id]) {
+                        taskMap[cloudTask.id] = { task: cloudTask, source: 'cloud' };
+                    } else {
+                        var existing = taskMap[cloudTask.id];
+                        var localTask = existing.task;
+
+                        if (cloudTask.deleted && !localTask.deleted) {
+                            taskMap[cloudTask.id] = { task: cloudTask, source: 'cloud-deleted' };
+                            return;
+                        }
+                        if (localTask.deleted && !cloudTask.deleted) {
+                            taskMap[cloudTask.id] = { task: localTask, source: 'local-deleted' };
+                            return;
+                        }
+                        if (cloudTask.deleted && localTask.deleted) {
+                            var cTime = new Date(cloudTask.updatedAt).getTime();
+                            var lTime = new Date(localTask.updatedAt).getTime();
+                            taskMap[cloudTask.id] = { task: (cTime > lTime ? cloudTask : localTask), source: 'both-deleted' };
+                            return;
+                        }
+
+                        var cVer = cloudTask.version || 0;
+                        var lVer = localTask.version || 0;
+                        var cTime = new Date(cloudTask.updatedAt).getTime();
+                        var lTime = new Date(localTask.updatedAt).getTime();
+                        if (isNaN(cTime)) cTime = 0;
+                        if (isNaN(lTime)) lTime = 0;
+
+                        if (cloudTask.updatedBy === localTask.updatedBy) {
+                            if (cVer > lVer || (cVer === lVer && cTime > lTime)) {
+                                taskMap[cloudTask.id] = { task: cloudTask, source: 'cloud-newer' };
+                            }
+                            return;
+                        }
+
+                        if (cTime > lTime) {
+                            conflicts.push({ id: cloudTask.id, text: cloudTask.text, winner: 'cloud', cloudBy: cloudTask.updatedBy, localBy: localTask.updatedBy });
+                            taskMap[cloudTask.id] = { task: cloudTask, source: 'cloud-wins-conflict' };
+                        } else if (lTime > cTime) {
+                            conflicts.push({ id: localTask.id, text: localTask.text, winner: 'local', cloudBy: cloudTask.updatedBy, localBy: localTask.updatedBy });
+                            taskMap[cloudTask.id] = { task: localTask, source: 'local-wins-conflict' };
+                        } else {
+                            if (cVer > lVer) {
+                                taskMap[cloudTask.id] = { task: cloudTask, source: 'cloud-ver' };
+                            } else {
+                                taskMap[cloudTask.id] = { task: localTask, source: 'local-ver' };
+                            }
+                        }
+                    }
+                }
+            });
+
+            var result = [];
+            for (var key in taskMap) {
+                if (taskMap.hasOwnProperty(key)) {
+                    var item = taskMap[key].task;
+                    if (item.deleted === true) continue;
+                    result.push(item);
+                }
+            }
+
+            result.sort(function(a, b) {
+                return (a.createdAt || '').localeCompare(b.createdAt || '');
+            });
+
+            return { tasks: result, conflicts: conflicts };
+        }
+
+        // ============================================================
+        // 日志系统
+        // ============================================================
+        function log(msg, type) {
+            var area = document.getElementById('logArea');
+            var cls = 'log-info';
+            if (type === 'warn') cls = 'log-warn';
+            else if (type === 'error') cls = 'log-error';
+            else if (type === 'success') cls = 'log-success';
+            else if (type === 'device') cls = 'log-device';
+            var time = new Date().toLocaleTimeString();
+            area.innerHTML += '<div class="log-entry ' + cls + '">[' + time + '] ' + msg + '</div>';
+            area.scrollTop = area.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logArea').innerHTML = '';
+        }
+
+        // ============================================================
+        // 状态显示
+        // ============================================================
+        function refreshStatus() {
+            document.getElementById('statDeviceId').textContent =
+                (localStorage.getItem('calendar_device_id') || '未设置').substring(0, 20);
+            var tasks = [];
+            try { tasks = JSON.parse(localStorage.getItem('annualCalendarTasks') || '[]'); } catch(e) {}
+            document.getElementById('statTasks').textContent = tasks.length;
+            var cfg = localStorage.getItem('webdavConfig');
+            document.getElementById('statWebdav').textContent = cfg ? '已配置' : '未配置';
+            document.getElementById('statVersion').textContent = localStorage.getItem('calendar_cloud_version') || '0';
+            document.getElementById('statEtag').textContent = (localStorage.getItem('calendar_cloud_etag') || '无').substring(0, 30);
+            var keys = [];
+            for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i);
+                if (k.indexOf('calendar') >= 0) keys.push(k);
+            }
+            document.getElementById('statKeys').textContent = keys.join(', ') || '无';
+            document.getElementById('currentDevice').textContent =
+                (localStorage.getItem('calendar_device_id') || '未设置').substring(0, 16) + '...';
+            log('✅ 状态已刷新', 'info');
+        }
+
+        function dumpLocalStorage() {
+            var dump = {};
+            for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i);
+                if (k.indexOf('calendar') >= 0) {
+                    try { dump[k] = JSON.parse(localStorage.getItem(k)); } catch(e) { dump[k] = localStorage.getItem(k); }
+                }
+            }
+            log('📋 localStorage导出:\n' + JSON.stringify(dump, null, 2), 'info');
+        }
+
+        function clearAllData() {
+            if (!confirm('确定清除所有日历数据（localStorage）？')) return;
+            var keys = [];
+            for (var i = 0; i < localStorage.length; i++) {
+                var k = localStorage.key(i);
+                if (k.indexOf('calendar') >= 0) keys.push(k);
+            }
+            keys.forEach(function(k) { localStorage.removeItem(k); });
+            log('⚠️ 已清除 ' + keys.length + ' 个键', 'warn');
+            refreshStatus();
+        }
+
+        // ============================================================
+        // 创建模拟任务
+        // ============================================================
+        function makeTask(deviceId, text, startDate, endDate, color, version) {
+            var now = getNowISO();
+            return {
+                id: generateId(),
+                text: text,
+                startDate: startDate,
+                endDate: endDate,
+                color: color || 'pink',
+                createdAt: now,
+                updatedAt: now,
+                createdBy: deviceId,
+                updatedBy: deviceId,
+                version: version || 1,
+                deleted: false
+            };
+        }
+
+        // ============================================================
+        // 测试场景
+        // ============================================================
+        function testScenario1() {
+            clearLogs();
+            log('🧪 === 场景1: 设备A 5条 + 设备B 3条 ===', 'info');
+
+            var devA = 'dev_aaaa1111';
+            var devB = 'dev_bbbb2222';
+
+            var tasksA = [
+                makeTask(devA, '设备A-项目规划', '2026-06-21', '2026-06-25', 'blue', 1),
+                makeTask(devA, '设备A-代码审查', '2026-06-22', '2026-06-24', 'mint', 1),
+                makeTask(devA, '设备A-周会', '2026-06-23', '2026-06-23', 'yellow', 1),
+                makeTask(devA, '设备A-文档写作', '2026-07-01', '2026-07-05', 'lavender', 1),
+                makeTask(devA, '设备A-用户测试', '2026-07-10', '2026-07-15', 'coral', 1)
+            ];
+            log('📱 设备A创建了5条日程', 'device');
+
+            var tasksB = [
+                makeTask(devB, '设备B-健身计划', '2026-06-21', '2026-06-30', 'peach', 1),
+                makeTask(devB, '设备B-读书笔记', '2026-06-25', '2026-06-28', 'teal', 1),
+                makeTask(devB, '设备B-旅行规划', '2026-08-01', '2026-08-07', 'sky', 1)
+            ];
+            log('📱 设备B创建了3条日程', 'device');
+
+            var result = mergeTasksMultiDevice(tasksA, tasksB);
+            log('🔀 合并结果: ' + result.tasks.length + ' 条', 'success');
+            result.tasks.forEach(function(t, i) {
+                log('  #' + (i+1) + ' [' + t.createdBy.substring(0,10) + '] ' + t.text + ' | ' + t.startDate + '~' + t.endDate + ' | ' + t.color, 'info');
+            });
+
+            if (result.tasks.length === 8) {
+                log('✅ 场景1通过: 5+3=8条全部保留', 'success');
+            } else {
+                log('❌ 场景1失败: 期望8条，实际' + result.tasks.length + '条', 'error');
+            }
+            log('📊 冲突数: ' + result.conflicts.length, result.conflicts.length > 0 ? 'warn' : 'info');
+        }
+
+        function testScenario2() {
+            clearLogs();
+            log('🧪 === 场景2: 4台设备各2条 ===', 'info');
+
+            var devices = ['dev_aaaa', 'dev_bbbb', 'dev_cccc', 'dev_dddd'];
+            var allTasks = [];
+
+            devices.forEach(function(dev, idx) {
+                var tasks = [
+                    makeTask(dev, dev + '-任务1', '2026-0' + (idx+6) + '-0' + (idx+1), '2026-0' + (idx+6) + '-0' + (idx+3), 'blue', 1),
+                    makeTask(dev, dev + '-任务2', '2026-0' + (idx+7) + '-1' + idx, '2026-0' + (idx+7) + '-1' + (idx+2), 'pink', 1)
+                ];
+                log('📱 ' + dev + ' 创建了2条日程', 'device');
+                allTasks = allTasks.concat(tasks);
+            });
+
+            log('📊 总计: ' + allTasks.length + ' 条（4设备×2）', 'info');
+
+            // 模拟逐步合并：设备A先上传 → B合并 → C合并 → D合并
+            var cloud = [];
+            for (var i = 0; i < devices.length; i++) {
+                var deviceTasks = allTasks.filter(function(t) { return t.createdBy === devices[i]; });
+                var result = mergeTasksMultiDevice(cloud, deviceTasks);
+                cloud = result.tasks;
+                log('🔀 设备' + (i+1) + '合并后云端: ' + cloud.length + ' 条', 'info');
+            }
+
+            log('🏁 最终云端: ' + cloud.length + ' 条', 'success');
+            if (cloud.length === 8) {
+                log('✅ 场景2通过: 4设备×2=8条全部保留', 'success');
+            } else {
+                log('❌ 场景2失败: 期望8条，实际' + cloud.length + '条', 'error');
+            }
+        }
+
+        function testScenario3() {
+            clearLogs();
+            log('🧪 === 场景3: 设备A修改 → 设备B同时修改 → 冲突解决 ===', 'info');
+
+            var devA = 'dev_aaaa';
+            var devB = 'dev_bbbb';
+            var taskId = 'shared_task_001';
+
+            // 共享任务（模拟云端原有）
+            var baseTask = {
+                id: taskId,
+                text: '原始任务',
+                startDate: '2026-06-21',
+                endDate: '2026-06-25',
+                color: 'blue',
+                createdAt: '2026-06-01T00:00:00.000Z',
+                updatedAt: '2026-06-20T10:00:00.000Z',
+                createdBy: devA,
+                updatedBy: devA,
+                version: 1,
+                deleted: false
+            };
+
+            // 设备A修改（更早）
+            var taskA = JSON.parse(JSON.stringify(baseTask));
+            taskA.text = '设备A修改版';
+            taskA.updatedAt = '2026-06-20T11:00:00.000Z';
+            taskA.updatedBy = devA;
+            taskA.version = 2;
+
+            // 设备B修改（更晚）
+            var taskB = JSON.parse(JSON.stringify(baseTask));
+            taskB.text = '设备B修改版';
+            taskB.updatedAt = '2026-06-20T12:00:00.000Z';
+            taskB.updatedBy = devB;
+            taskB.version = 2;
+
+            log('📱 设备A(' + devA + ') 修改: "' + taskA.text + '" (v2, 11:00)', 'device');
+            log('📱 设备B(' + devB + ') 修改: "' + taskB.text + '" (v2, 12:00)', 'device');
+
+            var result = mergeTasksMultiDevice([taskB], [taskA]);
+            log('🔀 合并结果: ' + result.tasks.length + ' 条', 'info');
+            if (result.tasks.length > 0) {
+                log('  → 最终: "' + result.tasks[0].text + '" by ' + result.tasks[0].updatedBy.substring(0,10), 'success');
+            }
+            log('📊 冲突数: ' + result.conflicts.length, result.conflicts.length > 0 ? 'warn' : 'info');
+            if (result.conflicts.length > 0) {
+                result.conflicts.forEach(function(c) {
+                    log('  ⚡ ' + c.text + ' | 胜出: ' + c.winner, 'warn');
+                });
+            }
+        }
+
+        function testScenario4() {
+            clearLogs();
+            log('🧪 === 场景4: 设备B空数据不应覆盖云端数据 ===', 'info');
+
+            var devA = 'dev_aaaa';
+            var cloudData = [
+                makeTask(devA, '设备A的重要日程1', '2026-06-21', '2026-06-25', 'blue', 1),
+                makeTask(devA, '设备A的重要日程2', '2026-07-01', '2026-07-05', 'coral', 1)
+            ];
+            log('☁️ 云端有 ' + cloudData.length + ' 条日程', 'info');
+
+            // 设备B本地为空
+            var localEmpty = [];
+            var result = mergeTasksMultiDevice(cloudData, localEmpty);
+            log('🔀 合并云端' + cloudData.length + '条 + 本地' + localEmpty.length + '条 = ' + result.tasks.length + ' 条', 'success');
+
+            if (result.tasks.length === 2) {
+                log('✅ 场景4通过: 云端数据未丢失，2条全部保留', 'success');
+            } else {
+                log('❌ 场景4失败: 期望2条，实际' + result.tasks.length + '条', 'error');
+            }
+        }
+
+        function testScenario5() {
+            clearLogs();
+            log('🧪 === 场景5: 4设备并发修改同一任务 ===', 'info');
+
+            var devices = ['dev_aaaa', 'dev_bbbb', 'dev_cccc', 'dev_dddd'];
+            var taskId = 'concurrent_task_001';
+            var baseTime = new Date('2026-06-20T10:00:00Z');
+
+            var baseTask = {
+                id: taskId,
+                text: '原始任务-待修改',
+                startDate: '2026-06-21',
+                endDate: '2026-06-25',
+                color: 'blue',
+                createdAt: '2026-06-01T00:00:00.000Z',
+                updatedAt: baseTime.toISOString(),
+                createdBy: 'dev_creator',
+                updatedBy: 'dev_creator',
+                version: 1,
+                deleted: false
+            };
+
+            // 4台设备在不同时间修改
+            var versions = [];
+            for (var i = 0; i < 4; i++) {
+                var modTime = new Date(baseTime.getTime() + (i + 1) * 60000); // 各差1分钟
+                var v = JSON.parse(JSON.stringify(baseTask));
+                v.text = devices[i] + '的修改(' + (i+1) + '分钟后)';
+                v.updatedAt = modTime.toISOString();
+                v.updatedBy = devices[i];
+                v.version = i + 2;
+                versions.push(v);
+                log('📱 ' + devices[i] + '修改: v' + v.version + ' @' + modTime.toISOString().substring(11,19), 'device');
+            }
+
+            // 逐个合并（模拟连续同步）
+            var cloud = [];
+            for (var j = 0; j < versions.length; j++) {
+                var r = mergeTasksMultiDevice([versions[j]], cloud.length > 0 ? cloud : [versions[j]]);
+                if (r.tasks.length > 0) cloud = r.tasks;
+                log('🔀 第' + (j+1) + '次合并: cloud=' + cloud.length + '条', 'info');
+            }
+
+            if (cloud.length === 1) {
+                log('✅ 场景5通过: 4并发修改正确合并为1条', 'success');
+                log('  最终版本: "' + cloud[0].text + '" by ' + cloud[0].updatedBy.substring(0,10), 'info');
+            } else {
+                log('❌ 场景5失败: 期望1条，实际' + cloud.length + '条（重复了！）', 'error');
+            }
+        }
+
+        async function testProxyConnection() {
+            clearLogs();
+            log('🔗 === 测试Vercel代理连接 ===', 'info');
+
+            var PROXY_URL = 'https://liner-calendar.vercel.app/api/webdav';
+            var testUrl = 'https://dav.jianguoyun.com/dav/01日历/日历数据.json';
+
+            log('📡 代理地址: ' + PROXY_URL, 'info');
+            log('🎯 目标: ' + testUrl, 'info');
+
+            // 测试1：OPTIONS预检
+            try {
+                var optRes = await fetch(PROXY_URL, { method: 'OPTIONS' });
+                log('✅ OPTIONS预检: HTTP ' + optRes.status, optRes.ok ? 'success' : 'error');
+            } catch(e) {
+                log('❌ OPTIONS预检失败: ' + e.message, 'error');
+            }
+
+            // 测试2：POST请求（模拟GET云端数据，不带认证）
+            try {
+                var testBody = {
+                    method: 'GET',
+                    url: testUrl,
+                    headers: { 'Authorization': 'Basic dGVzdDp0ZXN0', 'Content-Type': 'application/json' }
+                };
+                var res = await fetch(PROXY_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(testBody)
+                });
+                var data = await res.json();
+                log('📡 代理响应: HTTP ' + res.status + ' → ' + JSON.stringify(data).substring(0, 200), 'info');
+                if (data.status === 401) {
+                    log('⚠️ 认证失败（预期，使用了测试凭证）', 'warn');
+                    log('✅ 代理通信正常！请填入真实凭证测试', 'success');
+                } else if (data.ok) {
+                    log('✅ 代理连接成功！云端数据可访问', 'success');
+                }
+            } catch(e) {
+                log('❌ 代理连接失败: ' + e.message, 'error');
+                log('💡 请检查: 1) Vercel是否部署 2) 网络连接', 'warn');
+            }
+        }
+
+        // ============================================================
+        // 初始化
+        // ============================================================
+        refreshStatus();
+        log('🔧 调试工具就绪', 'info');
+        log('💡 点击按钮运行测试场景', 'info');
+        log('📋 所有测试在浏览器内存中运行，不修改localStorage', 'info');
+    </script>
+</body>
+</html>

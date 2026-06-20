@@ -1027,6 +1027,36 @@
         var syncBadge = document.getElementById('syncBadge');
 
         // ============================================================
+        // 设备指纹（多设备同步关键）
+        // ============================================================
+        var DEVICE_ID = '';
+        function getOrCreateDeviceId() {
+            try {
+                var id = localStorage.getItem('calendar_device_id');
+                if (!id) {
+                    id = 'dev_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 8);
+                    localStorage.setItem('calendar_device_id', id);
+                }
+                return id;
+            } catch (e) { return 'dev_unknown_' + Math.random().toString(36).substr(2, 8); }
+        }
+        DEVICE_ID = getOrCreateDeviceId();
+        console.log('🖥️ 设备ID:', DEVICE_ID);
+
+        // 云端同步版本号（本地跟踪，用于检测云端是否被其他设备修改）
+        var cloudSyncVersion = 0;
+        try {
+            var sv = localStorage.getItem('calendar_cloud_version');
+            if (sv) cloudSyncVersion = parseInt(sv) || 0;
+        } catch (e) { cloudSyncVersion = 0; }
+
+        // ETag 乐观锁（防止4+设备并发覆盖）
+        var cloudETag = null;
+        try {
+            cloudETag = localStorage.getItem('calendar_cloud_etag') || null;
+        } catch (e) { cloudETag = null; }
+
+        // ============================================================
         // 显示模式
         // ============================================================
         var displayMode = localStorage.getItem('displayMode') || 'auto';
@@ -1162,6 +1192,9 @@
                 if (t.text === undefined) t.text = '';
                 if (!t.color) t.color = defaultColor;
                 if (!t.createdAt) t.createdAt = now;
+                if (!t.createdBy) t.createdBy = DEVICE_ID;
+                if (!t.updatedBy) t.updatedBy = DEVICE_ID;
+                if (!t.version) t.version = 1;
             });
         }
 
@@ -1269,6 +1302,9 @@
                 color: color || defaultColor,
                 createdAt: now,
                 updatedAt: now,
+                createdBy: DEVICE_ID,
+                updatedBy: DEVICE_ID,
+                version: 1,
                 deleted: false
             });
             saveTasks();
@@ -1284,6 +1320,8 @@
                 t.endDate = endDate;
                 t.color = color || defaultColor;
                 t.updatedAt = getNowISO();
+                t.updatedBy = DEVICE_ID;
+                t.version = (t.version || 0) + 1;
                 saveTasks();
                 render();
                 autoSyncAfterChange();
@@ -1296,6 +1334,8 @@
             if (t) {
                 t.deleted = true;
                 t.updatedAt = getNowISO();
+                t.updatedBy = DEVICE_ID;
+                t.version = (t.version || 0) + 1;
                 saveTasks();
                 render();
                 autoSyncAfterChange();
@@ -1310,6 +1350,8 @@
             if (t) {
                 t.deleted = true;
                 t.updatedAt = getNowISO();
+                t.updatedBy = DEVICE_ID;
+                t.version = (t.version || 0) + 1;
                 saveTasks();
                 closeModal();
                 render();
@@ -1326,6 +1368,8 @@
             if (t) {
                 t.deleted = true;
                 t.updatedAt = getNowISO();
+                t.updatedBy = DEVICE_ID;
+                t.version = (t.version || 0) + 1;
                 saveTasks();
                 render();
                 hideContextMenu();
@@ -1349,7 +1393,7 @@
         }
 
         // ============================================================
-        // 同步核心
+        // 同步核心 v2 — 多设备安全版
         // ============================================================
 
         function syncWithRetry(syncFn, retries, name) {
@@ -1368,7 +1412,7 @@
                         }
                     }).catch(function(e) {
                         if (attempt < retries) {
-                            console.log('⏳ ' + name + ' 错误，重试 ' + attempt + '/' + retries, e);
+                            console.log('⏳ ' + name + ' 错误，重试 ' + attempt + '/' + retries, e.message);
                             setTimeout(doAttempt, 2000);
                         } else {
                             reject(e);
@@ -1377,6 +1421,36 @@
                 }
                 doAttempt();
             });
+        }
+
+        // 获取云端数据的版本号（用于冲突检测）
+        async function fetchCloudMeta() {
+            if (!webdavConfig.user || !webdavConfig.pass) return null;
+            try {
+                var headers = { 'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass) };
+                var response = await webdavProxyRequest('GET', webdavConfig.url, headers, null);
+                if (!response.ok) {
+                    if (response.status === 404) return { exists: false, tasks: [], version: 0, etag: null };
+                    return null;
+                }
+                var data = await response.json();
+                // ★ 保存ETag用于后续If-Match
+                var etag = response.headers.get('etag') || response.headers.get('ETag') || null;
+                if (etag) {
+                    cloudETag = etag;
+                    try { localStorage.setItem('calendar_cloud_etag', cloudETag); } catch (e) {}
+                }
+                return {
+                    exists: true,
+                    tasks: (data && data.tasks) ? data.tasks : [],
+                    version: (data && data.syncVersion) ? data.syncVersion : 0,
+                    updatedAt: (data && data.updatedAt) ? data.updatedAt : null,
+                    etag: etag,
+                };
+            } catch (e) {
+                console.warn('获取云端元数据失败:', e.message);
+                return null;
+            }
         }
 
         function syncMergeWithRetry(retries) {
@@ -1403,15 +1477,35 @@
             isSyncing = true;
             setSyncStatus('syncing', '上传中...');
             try {
-                var result = await syncWithRetry(function() {
-                    return syncToWebDAV();
-                }, 2, '上传');
-                if (result) {
-                    setSyncStatus('synced', '已上传');
-                    showSyncMessage('✅ 数据已上传到云端', 'success');
+                // ★ 安全策略：先读取云端数据，确认不会覆盖
+                var cloudMeta = await fetchCloudMeta();
+                if (cloudMeta === null) {
+                    setSyncStatus('error', '无法连接');
+                    showSyncMessage('❌ 无法连接云端，请检查网络和配置', 'error');
+                    isSyncing = false;
+                    return;
+                }
+                if (cloudMeta.exists && cloudMeta.tasks.length > 0) {
+                    // 云端有数据，先合并再上传
+                    console.log('☁️ 云端有 ' + cloudMeta.tasks.length + ' 条数据，先合并再上传');
+                    var result = await syncMergeCore();
+                    if (result) {
+                        setSyncStatus('synced', '已合并');
+                        showSyncMessage('✅ 数据已合并上传', 'success');
+                    } else {
+                        setSyncStatus('error', '合并失败');
+                        showSyncMessage('❌ 合并上传失败', 'error');
+                    }
                 } else {
-                    setSyncStatus('error', '上传失败');
-                    showSyncMessage('❌ 上传失败', 'error');
+                    // 云端无数据，安全上传
+                    var uploaded = await syncToWebDAV();
+                    if (uploaded) {
+                        setSyncStatus('synced', '已上传');
+                        showSyncMessage('✅ 数据已上传到云端', 'success');
+                    } else {
+                        setSyncStatus('error', '上传失败');
+                        showSyncMessage('❌ 上传失败', 'error');
+                    }
                 }
             } catch (e) {
                 setSyncStatus('error', '上传失败');
@@ -1429,17 +1523,15 @@
             isSyncing = true;
             setSyncStatus('syncing', '下载中...');
             try {
-                var result = await syncWithRetry(function() {
-                    return loadFromWebDAV(true);
-                }, 2, '下载');
-                if (result) {
+                var loaded = await loadFromWebDAV(false); // 合并模式下载
+                if (loaded) {
                     setSyncStatus('synced', '已下载');
-                    showSyncMessage('✅ 已从云端下载数据', 'success');
+                    showSyncMessage('✅ 已从云端合并下载数据', 'success');
                     await loadHolidayData(currentYear);
                     render();
                 } else {
                     setSyncStatus('error', '下载失败');
-                    showSyncMessage('❌ 下载失败', 'error');
+                    showSyncMessage('❌ 下载失败，请检查网络', 'error');
                 }
             } catch (e) {
                 setSyncStatus('error', '下载失败');
@@ -1459,50 +1551,65 @@
 
         async function syncMergeCore() {
             try {
-                console.log('🔀 [合并] 开始...');
+                console.log('🔀 [合并 v2] 开始... 设备:', DEVICE_ID);
 
-                var cloudData = await fetchCloudData();
-                var cloudTasks = (cloudData && cloudData.tasks) ? cloudData.tasks : [];
-                console.log('☁️ 云端数据:', cloudTasks.length, '项');
+                // ★ 第一步：获取云端数据（必须成功）
+                var cloudMeta = await fetchCloudMeta();
+                if (cloudMeta === null) {
+                    throw new Error('无法获取云端数据，同步中止以保护数据');
+                }
 
+                var cloudTasks = cloudMeta.tasks || [];
+                console.log('☁️ 云端:', cloudTasks.length, '项, 版本:', cloudMeta.version);
+
+                // 标准化云端数据
                 var now = getNowISO();
                 cloudTasks.forEach(function(t) {
                     if (!t.updatedAt) t.updatedAt = now;
                     if (t.deleted === undefined) t.deleted = false;
                     if (t.text === undefined) t.text = '';
                     if (!t.color) t.color = defaultColor;
+                    if (!t.createdBy) t.createdBy = 'unknown';
+                    if (!t.version) t.version = 1;
                 });
 
+                // ★ 第二步：准备本地数据
                 var localTasks = tasks.filter(function(t) { return t.deleted !== true; });
-                console.log('💻 本地数据:', localTasks.length, '项');
+                console.log('💻 本地:', localTasks.length, '项, 设备:', DEVICE_ID);
 
+                // 双方都为空
                 if (localTasks.length === 0 && cloudTasks.length === 0) {
-                    console.log('📭 本地和云端都无数据，跳过同步');
+                    console.log('📭 双方都无数据');
                     return true;
                 }
 
+                // 仅云端有数据
                 if (localTasks.length === 0 && cloudTasks.length > 0) {
-                    console.log('📥 本地为空，下载云端 ' + cloudTasks.length + ' 项');
+                    console.log('📥 本地为空，加载云端 ' + cloudTasks.length + ' 项');
                     tasks = cloudTasks.filter(function(t) { return t.deleted !== true; });
                     normalizeTasks();
                     saveTasksToStorage();
+                    cloudSyncVersion = cloudMeta.version;
+                    try { localStorage.setItem('calendar_cloud_version', cloudSyncVersion); } catch (e) {}
                     render();
                     updateStats();
                     return true;
                 }
 
+                // 仅本地有数据，云端为空
                 if (localTasks.length > 0 && cloudTasks.length === 0) {
                     console.log('📤 云端为空，上传本地 ' + localTasks.length + ' 项');
-                    return await syncToWebDAV();
+                    return await syncToWebDAVWithRetry(2);
                 }
 
-                console.log('🔀 合并本地(' + localTasks.length + ') 和云端(' + cloudTasks.length + ')');
-                var merged = mergeTasksSafe(cloudTasks, localTasks);
+                // ★ 双方都有数据 → 合并
+                console.log('🔀 三方合并：云端' + cloudTasks.length + ' + 本地' + localTasks.length);
+                var merged = mergeTasksMultiDevice(cloudTasks, localTasks);
 
                 if (merged.length === 0) {
                     console.error('❌ 合并结果为空，保留本地数据');
                     merged = localTasks.filter(function(t) { return t.deleted !== true; });
-                    if (merged.length === 0 && cloudTasks.length > 0) {
+                    if (merged.length === 0) {
                         merged = cloudTasks.filter(function(t) { return t.deleted !== true; });
                     }
                 }
@@ -1515,8 +1622,9 @@
                 render();
                 updateStats();
 
-                console.log('📤 上传合并后的 ' + tasks.length + ' 项数据');
-                return await syncToWebDAV();
+                // ★ 上传合并结果（使用ETag重试防止并发冲突）
+                console.log('📤 上传合并后的 ' + tasks.length + ' 项');
+                return await syncToWebDAVWithRetry(3);
 
             } catch (e) {
                 console.error('❌ 合并同步失败:', e);
@@ -1524,58 +1632,166 @@
             }
         }
 
-        function mergeTasksSafe(cloudTasks, localTasks) {
+        // ============================================================
+        // 多设备安全合并算法
+        // ============================================================
+        function mergeTasksMultiDevice(cloudTasks, localTasks) {
             var taskMap = {};
             var now = getNowISO();
 
-            if (localTasks && localTasks.length > 0) {
-                localTasks.forEach(function(t) {
-                    if (t && t.id && t.startDate && t.endDate) {
-                        var task = JSON.parse(JSON.stringify(t));
-                        if (!task.updatedAt) task.updatedAt = now;
-                        if (task.deleted === undefined) task.deleted = false;
-                        if (task.text === undefined) task.text = '';
-                        if (!task.color) task.color = defaultColor;
-                        taskMap[task.id] = task;
-                    }
-                });
+            // 辅助：深拷贝并标准化
+            function normalize(task, source) {
+                var t = JSON.parse(JSON.stringify(task));
+                if (!t.updatedAt) t.updatedAt = now;
+                if (t.deleted === undefined) t.deleted = false;
+                if (t.text === undefined) t.text = '';
+                if (!t.color) t.color = defaultColor;
+                if (!t.createdBy) t.createdBy = source || 'unknown';
+                if (!t.version) t.version = 1;
+                return t;
             }
 
-            if (cloudTasks && cloudTasks.length > 0) {
-                cloudTasks.forEach(function(t) {
-                    if (t && t.id && t.startDate && t.endDate) {
-                        var task = JSON.parse(JSON.stringify(t));
-                        if (!task.updatedAt) task.updatedAt = now;
-                        if (task.deleted === undefined) task.deleted = false;
-                        if (task.text === undefined) task.text = '';
-                        if (!task.color) task.color = defaultColor;
+            // 第一步：加载本地任务
+            localTasks.forEach(function(t) {
+                if (t && t.id && t.startDate && t.endDate) {
+                    var task = normalize(t, t.createdBy || DEVICE_ID);
+                    taskMap[task.id] = { task: task, source: 'local' };
+                }
+            });
 
-                        if (!taskMap[task.id]) {
-                            taskMap[task.id] = task;
+            // 第二步：合并云端任务
+            cloudTasks.forEach(function(t) {
+                if (t && t.id && t.startDate && t.endDate) {
+                    var cloudTask = normalize(t, t.createdBy || 'cloud');
+
+                    if (!taskMap[cloudTask.id]) {
+                        // 云端独有的任务，加入
+                        taskMap[cloudTask.id] = { task: cloudTask, source: 'cloud' };
+                    } else {
+                        // 同一ID的任务，需要冲突解决
+                        var existing = taskMap[cloudTask.id];
+                        var localTask = existing.task;
+
+                        // ★ 冲突解决策略：
+                        // 1. 如果一方标记为删除，以删除为准
+                        if (cloudTask.deleted && !localTask.deleted) {
+                            taskMap[cloudTask.id] = { task: cloudTask, source: 'cloud-deleted' };
+                            return;
+                        }
+                        if (localTask.deleted && !cloudTask.deleted) {
+                            taskMap[cloudTask.id] = { task: localTask, source: 'local-deleted' };
+                            return;
+                        }
+                        if (cloudTask.deleted && localTask.deleted) {
+                            // 两边都删了，保留最新的删除
+                            var cTime = new Date(cloudTask.updatedAt).getTime();
+                            var lTime = new Date(localTask.updatedAt).getTime();
+                            taskMap[cloudTask.id] = { task: (cTime > lTime ? cloudTask : localTask), source: 'both-deleted' };
+                            return;
+                        }
+
+                        // 2. 对比 version（优先）+ updatedAt（备选）
+                        var cVer = cloudTask.version || 0;
+                        var lVer = localTask.version || 0;
+                        var cTime = new Date(cloudTask.updatedAt).getTime();
+                        var lTime = new Date(localTask.updatedAt).getTime();
+                        if (isNaN(cTime)) cTime = 0;
+                        if (isNaN(lTime)) lTime = 0;
+
+                        // 同一设备修改的：version 高的优先
+                        if (cloudTask.updatedBy === localTask.updatedBy) {
+                            if (cVer > lVer || (cVer === lVer && cTime > lTime)) {
+                                taskMap[cloudTask.id] = { task: cloudTask, source: 'cloud-newer' };
+                            }
+                            // 否则保留本地的
+                            return;
+                        }
+
+                        // 不同设备修改的：比较时间戳，并标记冲突
+                        if (cTime > lTime) {
+                            cloudTask._conflict = true;
+                            cloudTask._cloudBy = cloudTask.updatedBy || '?';
+                            cloudTask._localBy = localTask.updatedBy || '?';
+                            // 保留本地text作为参考，但使用云端数据
+                            if (!cloudTask.text && localTask.text) {
+                                cloudTask.text = localTask.text; // 云端空则不覆盖
+                            }
+                            taskMap[cloudTask.id] = { task: cloudTask, source: 'cloud-wins-conflict' };
+                        } else if (lTime > cTime) {
+                            localTask._conflict = true;
+                            localTask._cloudBy = cloudTask.updatedBy || '?';
+                            localTask._localBy = localTask.updatedBy || '?';
+                            taskMap[cloudTask.id] = { task: localTask, source: 'local-wins-conflict' };
                         } else {
-                            var local = taskMap[task.id];
-                            var cloudTime = new Date(task.updatedAt).getTime();
-                            var localTime = new Date(local.updatedAt).getTime();
-                            if (isNaN(cloudTime)) cloudTime = 0;
-                            if (isNaN(localTime)) localTime = 0;
-                            if (cloudTime > localTime) {
-                                taskMap[task.id] = task;
+                            // 时间完全相同，version 高的优先
+                            if (cVer > lVer) {
+                                taskMap[cloudTask.id] = { task: cloudTask, source: 'cloud-ver' };
+                            } else {
+                                taskMap[cloudTask.id] = { task: localTask, source: 'local-ver' };
                             }
                         }
                     }
-                });
-            }
+                }
+            });
 
+            // 第三步：构建结果并清理临时标记
             var result = [];
             for (var key in taskMap) {
                 if (taskMap.hasOwnProperty(key)) {
-                    var item = taskMap[key];
-                    if (item.deleted === true) continue;
+                    var item = taskMap[key].task;
+                    if (item.deleted === true) continue; // 过滤已删除
+                    // 清理临时冲突标记（不存入最终数据）
+                    delete item._conflict;
+                    delete item._cloudBy;
+                    delete item._localBy;
                     result.push(item);
                 }
             }
 
+            // 按创建时间排序
+            result.sort(function(a, b) {
+                return (a.createdAt || '').localeCompare(b.createdAt || '');
+            });
+
             return result;
+        }
+
+        // ETag 锁上传（带重试）
+        async function syncToWebDAVWithRetry(maxRetries) {
+            var retries = maxRetries || 3;
+            var lastError = null;
+
+            for (var attempt = 0; attempt < retries; attempt++) {
+                try {
+                    if (attempt > 0) {
+                        console.log('🔄 ETag冲突，重新合并后重试 (' + (attempt + 1) + '/' + retries + ')');
+                        // ★ 重新获取云端最新数据并合并
+                        var cloudMeta = await fetchCloudMeta();
+                        if (cloudMeta && cloudMeta.exists && cloudMeta.tasks.length > 0) {
+                            var localActive = tasks.filter(function(t) { return t.deleted !== true; });
+                            tasks = mergeTasksMultiDevice(cloudMeta.tasks, localActive);
+                            normalizeTasks();
+                            saveTasksToStorage();
+                            render();
+                            updateStats();
+                            console.log('🔄 重合并完成，共 ' + tasks.length + ' 项');
+                        }
+                    }
+
+                    var result = await syncToWebDAV();
+                    if (result) return true;
+
+                    // 检查是否是412冲突
+                    lastError = new Error('上传失败');
+                } catch (e) {
+                    lastError = e;
+                    if (e.message.indexOf('412') < 0 && attempt < retries - 1) {
+                        await sleep(1000 * (attempt + 1)); // 递增等待
+                    }
+                }
+            }
+
+            throw lastError || new Error('上传失败，已重试 ' + retries + ' 次');
         }
 
         async function syncToWebDAV() {
@@ -1583,36 +1799,77 @@
 
             var activeTasks = tasks.filter(function(t) { return t.deleted !== true; });
 
-            if (activeTasks.length === 0 && tasks.length > 0) {
-                console.warn('⚠️ 所有任务已删除，不上传空数据');
-                showSyncMessage('⚠️ 没有有效数据可上传', 'error');
-                return false;
+            // ★ 安全保护：如果本地无有效数据且云端已存在数据，禁止上传空数据覆盖云端
+            if (activeTasks.length === 0) {
+                // 先检查云端是否有数据
+                try {
+                    var checkMeta = await fetchCloudMeta();
+                    if (checkMeta && checkMeta.exists && checkMeta.tasks.length > 0) {
+                        console.error('🛑 安全拦截：本地为空但云端有 ' + checkMeta.tasks.length + ' 条数据，拒绝上传空数据');
+                        showSyncMessage('🛑 云端已有数据，拒绝上传空数据以保护云端日程', 'error');
+                        return false;
+                    }
+                } catch (e) {
+                    console.error('🛑 无法验证云端状态，拒绝上传空数据');
+                    showSyncMessage('🛑 无法连接云端，取消上传以保护数据', 'error');
+                    return false;
+                }
+                console.log('📄 云端和本地都为空，允许同步');
             }
 
-            var data = {
+            // 构建上传数据
+            var newVersion = (cloudSyncVersion || 0) + 1;
+            var uploadData = {
                 tasks: activeTasks,
-                version: '1.0',
+                format: '1.1',
+                syncVersion: newVersion,
                 updatedAt: new Date().toISOString(),
+                lastDevice: DEVICE_ID,
                 hash: getDataVersion()
             };
 
             try {
-                var headers = {
+                var reqHeaders = {
                     'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass),
                     'Content-Type': 'application/json'
                 };
-                var response = await webdavProxyRequest('PUT', webdavConfig.url, headers, JSON.stringify(data, null, 2));
-                if (response.ok || response.status === 201) {
-                    console.log('✅ 上传成功，共 ' + activeTasks.length + ' 项');
+                // ★ ETag 乐观锁：如果已知云端ETag，使用If-Match防止覆盖
+                if (cloudETag) {
+                    reqHeaders['If-Match'] = cloudETag;
+                    console.log('🔒 使用ETag锁:', cloudETag.substring(0, 20) + '...');
+                }
+
+                var response = await webdavProxyRequest('PUT', webdavConfig.url, reqHeaders, JSON.stringify(uploadData, null, 2));
+
+                if (response.ok || response.status === 201 || response.status === 204) {
+                    console.log('✅ 上传成功，' + activeTasks.length + ' 项，版本 ' + newVersion);
+                    cloudSyncVersion = newVersion;
+                    try { localStorage.setItem('calendar_cloud_version', cloudSyncVersion); } catch (e) {}
+                    // 更新ETag
+                    var newETag = response.headers.get('etag') || response.headers.get('ETag') || null;
+                    if (newETag) {
+                        cloudETag = newETag;
+                        try { localStorage.setItem('calendar_cloud_etag', cloudETag); } catch (e) {}
+                    }
                     return true;
                 }
+
+                if (response.status === 412) {
+                    console.warn('⚠️ ETag冲突 (412)：其他设备已修改云端数据');
+                    cloudETag = null; // 清除过期的ETag
+                    try { localStorage.removeItem('calendar_cloud_etag'); } catch (e) {}
+                    throw new Error('412 冲突：其他设备已修改云端数据，需重新合并');
+                }
+
                 if (response.status === 401) {
-                    showSyncMessage('❌ 认证失败', 'error');
+                    showSyncMessage('❌ 认证失败，请检查用户名和应用密码', 'error');
                     return false;
                 }
+
                 showSyncMessage('❌ 上传失败 (HTTP ' + response.status + ')', 'error');
                 return false;
             } catch (e) {
+                if (e.message && e.message.indexOf('412') >= 0) throw e; // 重新抛出412错误供上层重试
                 showSyncMessage('❌ 上传失败：' + e.message, 'error');
                 return false;
             }
@@ -1621,13 +1878,13 @@
         async function loadFromWebDAV(forceOverwrite) {
             if (!webdavConfig.user || !webdavConfig.pass) return false;
             try {
-                console.log('📥 开始下载... 强制覆盖:', forceOverwrite);
+                console.log('📥 下载数据... 模式:', forceOverwrite ? '覆盖' : '合并');
                 var headers = { 'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass) };
                 var response = await webdavProxyRequest('GET', webdavConfig.url, headers, null);
 
                 if (!response.ok) {
                     if (response.status === 404) {
-                        console.log('📄 云端文件不存在');
+                        console.log('📄 云端无文件');
                         return true;
                     }
                     if (response.status === 401) {
@@ -1638,21 +1895,43 @@
                 }
 
                 var data = await response.json();
-                if (data && data.tasks && data.tasks.length > 0) {
-                    console.log('☁️ 云端任务数:', data.tasks.length);
-                    if (forceOverwrite) {
-                        tasks = data.tasks.filter(function(t) { return t.id && t.startDate && t.endDate; });
-                    } else {
-                        tasks = mergeTasksSafe(data.tasks, tasks);
-                    }
-                    normalizeTasks();
-                    saveTasksToStorage();
-                    await loadHolidayData(currentYear);
-                    render();
-                    updateStats();
-                    showSyncMessage('✅ 下载成功，共 ' + tasks.length + ' 项', 'success');
+                if (!data || !data.tasks) {
+                    console.log('📄 云端数据为空');
                     return true;
                 }
+
+                console.log('☁️ 下载到 ' + data.tasks.length + ' 条云端任务');
+                var cloudTasks = data.tasks.filter(function(t) { return t.id && t.startDate && t.endDate; });
+
+                if (forceOverwrite) {
+                    // ★ 即使覆盖模式，也保留未被云端包含的本地任务
+                    var localActive = tasks.filter(function(t) { return t.deleted !== true; });
+                    var cloudIds = {};
+                    cloudTasks.forEach(function(t) { cloudIds[t.id] = true; });
+                    var localOnly = localActive.filter(function(t) { return !cloudIds[t.id]; });
+
+                    tasks = cloudTasks.concat(localOnly);
+                    console.log('📥 覆盖下载: 云端' + cloudTasks.length + ' + 本地独有' + localOnly.length);
+                } else {
+                    // 合并模式
+                    var localActive = tasks.filter(function(t) { return t.deleted !== true; });
+                    tasks = mergeTasksMultiDevice(cloudTasks, localActive);
+                    console.log('📥 合并下载: 结果' + tasks.length + ' 项');
+                }
+
+                normalizeTasks();
+                saveTasksToStorage();
+
+                // 更新版本号
+                if (data.syncVersion) {
+                    cloudSyncVersion = data.syncVersion;
+                    try { localStorage.setItem('calendar_cloud_version', cloudSyncVersion); } catch (e) {}
+                }
+
+                await loadHolidayData(currentYear);
+                render();
+                updateStats();
+                showSyncMessage('✅ 下载成功，共 ' + tasks.length + ' 项', 'success');
                 return true;
             } catch (e) {
                 console.warn('从WebDAV加载失败:', e);
@@ -1670,9 +1949,14 @@
                     if (response.status === 404) return null;
                     throw new Error('HTTP ' + response.status);
                 }
-                return await response.json();
+                var data = await response.json();
+                if (data && data.syncVersion) {
+                    cloudSyncVersion = data.syncVersion;
+                    try { localStorage.setItem('calendar_cloud_version', cloudSyncVersion); } catch (e) {}
+                }
+                return data;
             } catch (e) {
-                console.warn('获取云端数据失败:', e);
+                console.warn('获取云端数据失败:', e.message);
                 return null;
             }
         }
@@ -1971,6 +2255,13 @@
             document.getElementById('totalTasks').textContent = activeTasks.length;
             document.getElementById('activeDays').textContent = getAllDatesWithTasks().size;
             document.getElementById('holidayCount').textContent = Object.keys(holidayData).length;
+            // 显示存储状态
+            var storageEl = document.getElementById('storageStatus');
+            if (webdavConfig.user && webdavConfig.pass) {
+                storageEl.textContent = '☁️云端(' + DEVICE_ID.substring(0, 10) + ')';
+            } else {
+                storageEl.textContent = '本地';
+            }
         }
 
         // ============================================================
@@ -2158,12 +2449,20 @@
         function closeWebDAVModal() { document.getElementById('webdavModal').classList.remove('active'); }
 
         async function webdavProxyRequest(method, url, headers, body) {
-            var requestBody = { method: method, url: url, headers: { 'Authorization': headers['Authorization'] || '', 'Content-Type': headers['Content-Type'] || 'application/json' } };
+            // ★ 修复：将 targetUrl 和 auth 放入 JSON body，匹配新版代理
+            var requestBody = {
+                method: method,
+                url: url,
+                headers: {
+                    'Authorization': headers['Authorization'] || '',
+                    'Content-Type': headers['Content-Type'] || 'application/json'
+                }
+            };
             if (body) requestBody.body = body;
 
             try {
                 var controller = new AbortController();
-                var timeoutId = setTimeout(function() { controller.abort(); }, 60000);
+                var timeoutId = setTimeout(function() { controller.abort(); }, 30000); // 30秒超时
                 var response = await fetch(PROXY_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2171,19 +2470,28 @@
                     signal: controller.signal
                 });
                 clearTimeout(timeoutId);
+
                 var text = await response.text();
                 var result;
-                try { result = JSON.parse(text); } catch (e) { result = { error: 'Invalid JSON', raw: text }; }
-                if (!response.ok) throw new Error('Proxy error ' + response.status + ': ' + (result.error || JSON.stringify(result)));
+                try { result = JSON.parse(text); } catch (e) { result = { error: 'Invalid proxy response', raw: text.substring(0, 200) }; }
+
+                if (!response.ok) {
+                    throw new Error('代理请求失败 HTTP ' + response.status + ': ' + (result.error || result.message || 'Unknown'));
+                }
+
+                // 新代理返回 { ok, status, statusText, data, headers }
                 return {
-                    ok: result.status >= 200 && result.status < 300,
-                    status: result.status,
+                    ok: result.ok === true || (result.status >= 200 && result.status < 300),
+                    status: result.status || 0,
                     statusText: result.statusText || '',
                     headers: new Headers(result.headers || {}),
-                    json: function() { return result.data; },
-                    text: function() { return typeof result.data === 'string' ? result.data : JSON.stringify(result.data); }
+                    json: function() { return Promise.resolve(result.data); },
+                    text: function() { return Promise.resolve(typeof result.data === 'string' ? result.data : JSON.stringify(result.data)); }
                 };
-            } catch (error) { console.error('代理请求失败:', error); throw error; }
+            } catch (error) {
+                console.error('代理请求失败:', error.message);
+                throw error;
+            }
         }
 
         async function testWebDAV() {
@@ -2251,58 +2559,71 @@
 
             webdavConfig = { url: url, user: user, pass: pass };
             saveWebDAVConfigToStorage();
+            document.getElementById('webdavBtn').textContent = '⏳ 连接中...';
 
             setSyncStatus('syncing', '连接中...');
-            showSyncMessage('⏳ 正在连接云端...', '');
+            showSyncMessage('⏳ 正在连接并同步云端...', '');
 
             try {
-                var cloudData = await fetchCloudData();
-                var hasCloudData = cloudData && cloudData.tasks && cloudData.tasks.length > 0;
-                var hasLocalData = tasks.filter(function(t) { return t.deleted !== true; }).length > 0;
+                // ★ 第一步：获取云端元数据（不会修改任何数据）
+                var cloudMeta = await fetchCloudMeta();
+                var hasCloudData = cloudMeta && cloudMeta.exists && cloudMeta.tasks.length > 0;
+                var localActive = tasks.filter(function(t) { return t.deleted !== true; });
+                var hasLocalData = localActive.length > 0;
+
+                console.log('🔧 [配置] 云端有数据:', hasCloudData, '本地有数据:', hasLocalData);
 
                 if (hasCloudData && !hasLocalData) {
+                    // ★ 场景1：云端有数据，本地空 → 下载（合并模式，保安全）
                     showSyncMessage('📥 从云端下载数据...', '');
-                    var loaded = await loadFromWebDAV(true);
+                    var loaded = await loadFromWebDAV(false); // false = merge模式
                     if (loaded) {
-                        setSyncStatus('synced', '已下载');
-                        showSyncMessage('✅ 已从云端下载 ' + tasks.length + ' 项数据', 'success');
+                        setSyncStatus('synced', '已同步');
+                        showSyncMessage('✅ 已从云端下载 ' + tasks.length + ' 项日程', 'success');
                         render();
                     } else {
                         setSyncStatus('error', '下载失败');
                         showSyncMessage('❌ 下载失败', 'error');
                     }
+
                 } else if (!hasCloudData && hasLocalData) {
+                    // ★ 场景2：本地有数据，云端空 → 上传（安全：云端空，不会覆盖任何数据）
                     showSyncMessage('📤 上传本地数据到云端...', '');
                     var uploaded = await syncToWebDAV();
                     if (uploaded) {
-                        setSyncStatus('synced', '已上传');
-                        showSyncMessage('✅ 已上传 ' + tasks.length + ' 项数据到云端', 'success');
+                        setSyncStatus('synced', '已同步');
+                        showSyncMessage('✅ 已上传 ' + tasks.length + ' 项到云端', 'success');
                     } else {
                         setSyncStatus('error', '上传失败');
                         showSyncMessage('❌ 上传失败', 'error');
                     }
+
                 } else if (hasCloudData && hasLocalData) {
-                    showSyncMessage('🔀 合并数据...', '');
+                    // ★ 场景3：双方都有数据 → 三方合并（云端、本地、新设备）= 最安全
+                    showSyncMessage('🔀 发现云/本地都有数据，智能合并中...', '');
                     var merged = await syncMergeCore();
                     if (merged) {
                         setSyncStatus('synced', '已同步');
-                        showSyncMessage('✅ 数据已合并同步', 'success');
+                        showSyncMessage('✅ 云端' + cloudMeta.tasks.length + '条 + 本地' + localActive.length + '条 → 合并为' + tasks.length + '条', 'success');
                         render();
                     } else {
                         setSyncStatus('error', '合并失败');
-                        showSyncMessage('❌ 合并失败', 'error');
+                        showSyncMessage('❌ 合并失败，请重试', 'error');
                     }
+
                 } else {
+                    // ★ 场景4：双方都无数据 → 正常
                     setSyncStatus('', '已配置');
-                    showSyncMessage('ℹ️ 暂无数据，请新建日程', '');
+                    showSyncMessage('✅ WebDAV 已配置，请创建日程', 'success');
                 }
 
             } catch (e) {
-                console.error('配置保存失败:', e);
+                console.error('❌ 配置保存失败:', e);
                 setSyncStatus('error', '配置失败');
                 showSyncMessage('❌ 配置失败：' + e.message, 'error');
             }
 
+            document.getElementById('webdavBtn').textContent = '⚙️ 设置';
             closeWebDAVModal();
         }
 
@@ -2337,24 +2658,32 @@
             loadWebDAVConfig();
             await loadHolidayData(currentYear);
 
+            // ★ 先从本地加载
+            loadTasksFromStorage();
+            // 确保所有任务有设备信息
+            normalizeTasks();
+
             if (webdavConfig.user && webdavConfig.pass) {
-                setSyncStatus('syncing', '加载中...');
+                setSyncStatus('syncing', '同步中...');
+                console.log('🔄 [启动] 设备 ' + DEVICE_ID + '，检测到已配置WebDAV，开始同步');
                 try {
+                    // ★ 使用合并模式，不覆盖
                     var loaded = await loadFromWebDAV(false);
                     if (loaded) {
                         setSyncStatus('synced', '已同步');
-                        showSyncMessage('✅ 已从云端加载数据', 'success');
+                        console.log('✅ [启动] 同步完成，共 ' + tasks.length + ' 条日程');
                     } else {
-                        setSyncStatus('error', '加载失败');
-                        loadTasksFromStorage();
+                        setSyncStatus('error', '同步失败');
+                        console.warn('⚠️ [启动] 云端同步失败，使用本地数据');
+                        // 本地数据已在上面加载，保持不变
                     }
                 } catch (e) {
-                    setSyncStatus('error', '加载失败');
-                    loadTasksFromStorage();
+                    console.warn('⚠️ [启动] 同步异常，使用本地数据:', e.message);
+                    setSyncStatus('error', '同步失败');
+                    // 本地数据保留
                 }
             } else {
-                loadTasksFromStorage();
-                showSyncMessage('ℹ️ 使用本地存储，点击 ⚙️ 配置同步', '');
+                showSyncMessage('ℹ️ 使用本地存储，点击 ⚙️ 设置同步', '');
             }
 
             applyDisplayMode(displayMode);
@@ -2363,7 +2692,7 @@
             if (!webdavConfig.user || !webdavConfig.pass) {
                 setSyncStatus('', '未配置');
             }
-            console.log('📅 已加载，年份:', currentYear, '事项:', tasks.length);
+            console.log('📅 日历就绪 | 年份:' + currentYear + ' | 日程:' + tasks.length + ' | 设备:' + DEVICE_ID);
         }
 
         // ============================================================
