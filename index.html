@@ -124,6 +124,20 @@
             --transition-fast: 0.15s;
             --transition-med: 0.2s;
             --transition-slow: 0.3s;
+
+            /* === 显示模式变量 === */
+            --day-column-flex: 1 1 0;
+            --day-column-min-width: 28px;
+            --schedule-bar-cell-flex: 1 1 0;
+            --schedule-bar-cell-min-width: 28px;
+        }
+
+        /* === 固定列宽模式 === */
+        :root.fixed-width {
+            --day-column-flex: 0 0 5em;
+            --day-column-min-width: 5em;
+            --schedule-bar-cell-flex: 0 0 5em;
+            --schedule-bar-cell-min-width: 5em;
         }
 
         [data-theme="dark"] {
@@ -334,6 +348,20 @@
             color: var(--text-muted); font-size: 10px; padding: 0 2px;
         }
 
+        /* ===== 显示模式切换按钮 ===== */
+        .btn-mode {
+            background: var(--bg-btn-cancel);
+            border: none; padding: 5px 12px; border-radius: 30px;
+            font-size: 11px; font-weight: 500; color: var(--text-btn-cancel);
+            cursor: pointer; font-family: inherit;
+            transition: var(--transition-fast); white-space: nowrap;
+        }
+        .btn-mode:hover { background: var(--bg-btn-cancel-hover); }
+        .btn-mode.active {
+            background: var(--bg-btn-primary); color: #fff;
+        }
+        .btn-mode.active:hover { background: var(--bg-btn-primary-hover); }
+
         .btn-theme { font-size: 14px; padding: 5px 12px; }
         .btn-theme:hover { background: var(--bg-btn-cancel-hover); transform: scale(1.05); }
 
@@ -407,10 +435,12 @@
         }
         .weekday-row .weekday-placeholder { flex: 0 0 56px; min-width: 56px; }
         .weekday-row .weekday-item {
-            flex: 1 1 0; min-width: 24px; text-align: center;
+            flex: var(--day-column-flex);
+            min-width: var(--day-column-min-width);
+            text-align: center;
             font-size: 11px; font-weight: 600; color: var(--text-muted);
             padding: 2px; overflow: hidden; white-space: nowrap;
-            transition: color var(--transition-slow);
+            transition: color var(--transition-slow), flex var(--transition-fast), min-width var(--transition-fast);
         }
         .weekday-row .weekday-item.weekend { color: var(--text-weekend); }
 
@@ -445,13 +475,16 @@
         .schedule-bars-row { min-height: 28px; }
 
         .day-cell {
-            flex: 1 1 0; min-width: 22px; height: 32px; border-radius: 5px;
+            flex: var(--day-column-flex);
+            min-width: var(--day-column-min-width);
+            height: 32px; border-radius: 5px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             background: var(--bg-day); border: 1.5px solid var(--border-day);
             cursor: pointer; position: relative; font-size: 12px; font-weight: 500;
             color: var(--text-day-num); overflow: hidden;
             transition: background var(--transition-fast), border-color var(--transition-fast),
-                        transform var(--transition-fast), color var(--transition-fast);
+                        transform var(--transition-fast), color var(--transition-fast),
+                        flex var(--transition-fast), min-width var(--transition-fast);
             touch-action: none;
         }
         .day-cell:active { transform: scale(0.95); }
@@ -497,8 +530,16 @@
         .day-cell.drag-selected.workday-adjust .adjust-badge { display: none; }
 
         /* ===== 日程色块 ===== */
-        .schedule-bar-placeholder { flex: 1 1 0; min-width: 22px; height: 28px; }
-        .schedule-bar-cell { flex: 1 1 0; min-width: 22px; height: 28px; position: relative; }
+        .schedule-bar-placeholder {
+            flex: var(--schedule-bar-cell-flex);
+            min-width: var(--schedule-bar-cell-min-width);
+            height: 28px;
+        }
+        .schedule-bar-cell {
+            flex: var(--schedule-bar-cell-flex);
+            min-width: var(--schedule-bar-cell-min-width);
+            height: 28px; position: relative;
+        }
         .schedule-bar {
             position: absolute; top: 0; left: 0; height: 28px; width: 100%;
             border-radius: 5px; display: flex; align-items: center; justify-content: center;
@@ -750,6 +791,7 @@
             .header h1 { font-size: 16px; }
             .header-actions button, .sync-status-badge { font-size: 9px; padding: 4px 10px; }
             .sync-btn-group .sync-btn { font-size: 9px; padding: 3px 8px; }
+            .btn-mode { font-size: 9px; padding: 3px 8px; }
             .btn-theme { font-size: 12px; padding: 4px 8px; }
             .month-label { flex: 0 0 40px; min-width: 40px; font-size: 11px; }
             .month-label .month-name { font-size: 12px; }
@@ -770,6 +812,7 @@
             .header h1 { font-size: 14px; }
             .header-actions button, .sync-status-badge { font-size: 8px; padding: 3px 7px; }
             .sync-btn-group .sync-btn { font-size: 8px; padding: 2px 6px; }
+            .btn-mode { font-size: 8px; padding: 2px 6px; }
             .btn-theme { font-size: 10px; padding: 3px 6px; }
             .month-label { flex: 0 0 32px; min-width: 32px; font-size: 9px; }
             .month-label .month-name { font-size: 10px; }
@@ -803,6 +846,7 @@
                     <button class="sync-btn btn-download" onclick="syncDownload()" title="从云端下载数据">⬇️ 下载</button>
                     <button class="sync-btn btn-merge" onclick="syncMerge()" title="双向合并同步">🔄 合并</button>
                 </div>
+                <button class="btn-mode" id="modeBtn" onclick="toggleDisplayMode()" title="切换显示模式">📐 自动</button>
                 <button class="btn-theme" onclick="toggleTheme()" id="themeBtn">🌙</button>
                 <button class="btn-today" onclick="goToToday()">📌 今天</button>
                 <button class="btn-primary" onclick="openModal()">➕ 新建</button>
@@ -938,6 +982,62 @@
         var syncBadge = document.getElementById('syncBadge');
 
         // ============================================================
+        // 显示模式
+        // ============================================================
+        var displayMode = localStorage.getItem('displayMode') || 'auto';
+
+        function applyDisplayMode(mode) {
+            var root = document.documentElement;
+            var btn = document.getElementById('modeBtn');
+
+            // 移除所有模式类
+            root.classList.remove('fixed-width');
+
+            if (mode === 'fixed') {
+                root.classList.add('fixed-width');
+                btn.textContent = '📐 固定';
+                btn.title = '固定列宽模式，每列5em';
+            } else if (mode === 'adaptive') {
+                btn.textContent = '📐 自适应';
+                btn.title = '自适应模式，等宽填充';
+            } else {
+                // auto 模式：根据屏幕宽度自动切换
+                btn.textContent = '📐 自动';
+                btn.title = '自动模式，根据屏幕宽度切换';
+                // 检测屏幕宽度，自动应用
+                var screenWidth = window.innerWidth;
+                if (screenWidth < 768) {
+                    root.classList.add('fixed-width');
+                } else {
+                    // 不添加 fixed-width 类
+                }
+            }
+            localStorage.setItem('displayMode', mode);
+        }
+
+        function toggleDisplayMode() {
+            var modes = ['auto', 'adaptive', 'fixed'];
+            var currentIndex = modes.indexOf(displayMode);
+            var nextIndex = (currentIndex + 1) % modes.length;
+            displayMode = modes[nextIndex];
+            applyDisplayMode(displayMode);
+            // 重新渲染以应用新模式
+            render();
+        }
+
+        // 监听窗口大小变化（仅对自动模式生效）
+        var resizeTimer = null;
+        window.addEventListener('resize', function() {
+            if (displayMode === 'auto') {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(function() {
+                    applyDisplayMode('auto');
+                    render();
+                }, 300);
+            }
+        });
+
+        // ============================================================
         // 同步状态
         // ============================================================
         function setSyncStatus(status, msg) {
@@ -965,7 +1065,7 @@
             else if (type === 'error') el.classList.add('error');
             msgEl.textContent = msg;
             clearTimeout(window._syncMsgTimer);
-            window._syncMsgTimer = setTimeout(function() { hideSyncStatus(); }, 4000);
+            window._syncMsgTimer = setTimeout(function() { hideSyncStatus(); }, 5000);
         }
         function hideSyncStatus() {
             document.getElementById('syncStatus').style.display = 'none';
@@ -1118,7 +1218,7 @@
         }
 
         // ============================================================
-        // 任务CRUD（含updatedAt更新）
+        // 任务CRUD
         // ============================================================
         function getNowISO() { return new Date().toISOString(); }
 
@@ -1146,7 +1246,7 @@
                 t.startDate = startDate;
                 t.endDate = endDate;
                 t.color = color || defaultColor;
-                t.updatedAt = getNowISO();  // ✅ 只有用户修改时才更新
+                t.updatedAt = getNowISO();
                 saveTasks();
                 render();
                 autoSyncAfterChange();
@@ -1197,7 +1297,6 @@
             }
         }
 
-        // 自动同步（带防抖）
         var autoSyncTimer = null;
 
         function autoSyncAfterChange() {
@@ -1209,11 +1308,11 @@
             clearTimeout(autoSyncTimer);
             autoSyncTimer = setTimeout(function() {
                 syncMergeWithRetry(3);
-            }, 1000);
+            }, 1500);
         }
 
         // ============================================================
-        // 独立同步功能：上传、下载、合并（带重试）
+        // 同步功能
         // ============================================================
 
         function syncWithRetry(syncFn, retries, name) {
@@ -1258,7 +1357,6 @@
             });
         }
 
-        // ===== 上传：本地 → 云端 =====
         async function syncUpload() {
             if (!webdavConfig.user || !webdavConfig.pass) {
                 showSyncMessage('⚠️ 请先配置 WebDAV', 'error');
@@ -1285,7 +1383,6 @@
             isSyncing = false;
         }
 
-        // ===== 下载：云端 → 本地 =====
         async function syncDownload() {
             if (!webdavConfig.user || !webdavConfig.pass) {
                 showSyncMessage('⚠️ 请先配置 WebDAV', 'error');
@@ -1301,6 +1398,7 @@
                 if (result) {
                     setSyncStatus('synced', '已下载');
                     showSyncMessage('✅ 已从云端下载数据', 'success');
+                    // 强制重新渲染
                     render();
                 } else {
                     setSyncStatus('error', '下载失败');
@@ -1313,7 +1411,6 @@
             isSyncing = false;
         }
 
-        // ===== 合并 =====
         async function syncMerge() {
             if (!webdavConfig.user || !webdavConfig.pass) {
                 showSyncMessage('⚠️ 请先配置 WebDAV', 'error');
@@ -1326,20 +1423,16 @@
         // ===== 合并核心逻辑 =====
         async function syncMergeCore() {
             try {
-                // 1. 获取云端数据
                 var cloudData = await fetchCloudData();
                 var cloudTasks = (cloudData && cloudData.tasks) ? cloudData.tasks : [];
 
-                // 2. 获取本地数据（过滤已删除的）
                 var localTasks = tasks.filter(function(t) { return t.deleted !== true; });
 
-                // 3. 安全检查
                 if (localTasks.length === 0 && cloudTasks.length === 0) {
                     console.log('📭 本地和云端都无数据，跳过同步');
                     return true;
                 }
 
-                // 4. 本地为空，云端有数据 → 下载
                 if (localTasks.length === 0 && cloudTasks.length > 0) {
                     console.log('📥 本地为空，从云端下载 ' + cloudTasks.length + ' 项');
                     tasks = cloudTasks;
@@ -1349,18 +1442,17 @@
                     return true;
                 }
 
-                // 5. 本地有数据，云端为空 → 上传
                 if (localTasks.length > 0 && cloudTasks.length === 0) {
                     console.log('📤 云端为空，上传本地 ' + localTasks.length + ' 项');
                     return await syncToWebDAV();
                 }
 
-                // 6. 双方都有数据 → 合并
                 console.log('🔀 合并本地(' + localTasks.length + ') 和云端(' + cloudTasks.length + ')');
                 var merged = mergeTasksByTimestamp(cloudTasks, localTasks);
 
                 if (merged.length === 0 && (localTasks.length > 0 || cloudTasks.length > 0)) {
                     console.error('❌ 合并结果异常为空，中止同步');
+                    showSyncMessage('❌ 合并失败，数据异常', 'error');
                     return false;
                 }
 
@@ -1378,61 +1470,66 @@
             }
         }
 
-        // ===== 按 updatedAt 合并（方案三：保留原始 updatedAt，合并时不修改） =====
+        // ===== 按 updatedAt 合并 =====
         function mergeTasksByTimestamp(cloudTasks, localTasks) {
             var taskMap = {};
+            var now = new Date().toISOString();
 
-            // 1. 添加本地任务（保留原始 updatedAt）
             if (localTasks && localTasks.length > 0) {
                 localTasks.forEach(function(t) {
                     if (t && t.id && t.startDate && t.endDate) {
-                        if (!t.updatedAt) t.updatedAt = new Date().toISOString();
+                        if (!t.updatedAt) t.updatedAt = now;
                         if (t.deleted === undefined) t.deleted = false;
-                        // 深拷贝，保留所有原始字段
                         taskMap[t.id] = JSON.parse(JSON.stringify(t));
                     }
                 });
             }
 
-            // 2. 合并云端任务（只读取比较，不修改 updatedAt）
             if (cloudTasks && cloudTasks.length > 0) {
                 cloudTasks.forEach(function(t) {
                     if (t && t.id && t.startDate && t.endDate) {
-                        if (!t.updatedAt) t.updatedAt = new Date().toISOString();
+                        if (!t.updatedAt) t.updatedAt = now;
                         if (t.deleted === undefined) t.deleted = false;
 
                         if (!taskMap[t.id]) {
-                            // 本地没有 → 添加云端版本
                             taskMap[t.id] = JSON.parse(JSON.stringify(t));
                         } else {
-                            // 本地已有 → 比较 updatedAt，保留较新的
                             var local = taskMap[t.id];
                             var cloudTime = new Date(t.updatedAt).getTime();
                             var localTime = new Date(local.updatedAt).getTime();
-
                             if (cloudTime > localTime) {
-                                // 云端更新 → 覆盖本地（深拷贝）
                                 taskMap[t.id] = JSON.parse(JSON.stringify(t));
-                                console.log('🔄 云端更新覆盖本地:', t.id);
-                            } else {
-                                // 本地更新 → 保留本地
-                                console.log('🔄 本地更新保留:', t.id);
                             }
                         }
                     }
                 });
             }
 
-            // 3. 过滤已删除的（软删除）
             var result = [];
             for (var key in taskMap) {
                 if (taskMap.hasOwnProperty(key)) {
                     var item = taskMap[key];
-                    if (item.deleted === true) {
-                        console.log('🗑️ 跳过已删除项:', key);
-                        continue;
-                    }
+                    if (item.deleted === true) continue;
                     result.push(item);
+                }
+            }
+
+            // 空数据保护
+            if (result.length === 0 && (localTasks.length > 0 || cloudTasks.length > 0)) {
+                console.warn('⚠️ 合并结果为空，保留本地数据');
+                if (localTasks && localTasks.length > 0) {
+                    localTasks.forEach(function(t) {
+                        if (t && t.id && t.startDate && t.endDate && t.deleted !== true) {
+                            result.push(JSON.parse(JSON.stringify(t)));
+                        }
+                    });
+                }
+                if (result.length === 0 && cloudTasks && cloudTasks.length > 0) {
+                    cloudTasks.forEach(function(t) {
+                        if (t && t.id && t.startDate && t.endDate && t.deleted !== true) {
+                            result.push(JSON.parse(JSON.stringify(t)));
+                        }
+                    });
                 }
             }
 
@@ -1671,7 +1768,14 @@
                         var isEmpty = !bar.text || bar.text.trim() === '';
                         var emptyClass = isEmpty ? 'empty-name' : '';
                         var span = Math.min(bar.endCol - bar.startCol + 1, MAX_COLS - bar.startCol);
-                        html += '<div class="schedule-bar-cell" style="flex: ' + span + ' 1 0; min-width: ' + (span * 22) + 'px;">';
+                        // 固定列宽模式下，使用 flex: 0 0 span*5em
+                        var flexVal = document.documentElement.classList.contains('fixed-width') ?
+                            ('0 0 ' + (span * 5) + 'em') :
+                            (span + ' 1 0');
+                        var minW = document.documentElement.classList.contains('fixed-width') ?
+                            (span * 5) + 'em' :
+                            (span * 28) + 'px';
+                        html += '<div class="schedule-bar-cell" style="flex: ' + flexVal + '; min-width: ' + minW + ';">';
                         html += '<div class="schedule-bar color-' + colorKey + ' ' + emptyClass + '" onclick="event.stopPropagation(); editTask(\'' + bar.task.id + '\')" oncontextmenu="showContextMenu(event, \'' + bar.task.id + '\')" title="' + (bar.text || '点击编辑') + '">';
                         html += displayText;
                         html += '<span class="schedule-delete-btn" onclick="event.stopPropagation(); deleteTaskDirect(\'' + bar.task.id + '\', event)">×</span>';
@@ -1706,7 +1810,7 @@
         }
 
         // ============================================================
-        // 拖动选择（触摸+鼠标统一处理）
+        // 拖动选择
         // ============================================================
         var isDragging = false;
         var dragStartDate = null;
@@ -1896,7 +2000,6 @@
 
             try {
                 var controller = new AbortController();
-                // iPad 超时 60 秒
                 var timeoutId = setTimeout(function() { controller.abort(); }, 60000);
                 var response = await fetch(PROXY_URL, {
                     method: 'POST',
@@ -1978,7 +2081,7 @@
             }
         }
 
-        // ===== 同步到WebDAV（上传） =====
+        // ===== 同步到WebDAV =====
         async function syncToWebDAV() {
             if (!webdavConfig.user || !webdavConfig.pass) return false;
             var activeTasks = tasks.filter(function(t) { return t.deleted !== true; });
@@ -2006,7 +2109,7 @@
             }
         }
 
-        // ===== 从WebDAV加载（下载） =====
+        // ===== 从WebDAV加载 =====
         async function loadFromWebDAV(forceOverwrite) {
             if (!webdavConfig.user || !webdavConfig.pass) return false;
             try {
@@ -2041,8 +2144,11 @@
                         tasks = mergeTasksByTimestamp(data.tasks, tasks);
                     }
                     saveTasksToStorage();
+                    // 强制重新加载节假日数据后渲染
+                    await loadHolidayData(currentYear);
                     render();
                     updateStats();
+                    showSyncMessage('✅ 下载成功，共 ' + tasks.length + ' 项', 'success');
                     return true;
                 }
                 return true;
@@ -2067,7 +2173,7 @@
             } catch (e) { console.warn('获取云端数据失败:', e); return null; }
         }
 
-        // ===== 保存WebDAV配置（首次配置先检查云端） =====
+        // ===== 保存WebDAV配置 =====
         async function saveWebDAVConfig() {
             var url = document.getElementById('webdavUrl').value.trim();
             var user = document.getElementById('webdavUser').value.trim();
@@ -2081,15 +2187,11 @@
             showSyncMessage('⏳ 正在连接云端...', '');
 
             try {
-                // 1. 检查云端是否有数据
                 var cloudData = await fetchCloudData();
                 var hasCloudData = cloudData && cloudData.tasks && cloudData.tasks.length > 0;
-
-                // 2. 检查本地是否有数据
                 var hasLocalData = tasks.filter(function(t) { return t.deleted !== true; }).length > 0;
 
                 if (hasCloudData && !hasLocalData) {
-                    // 云端有数据，本地为空 → 下载
                     showSyncMessage('📥 从云端下载数据...', '');
                     var loaded = await loadFromWebDAV(true);
                     if (loaded) {
@@ -2101,7 +2203,6 @@
                         showSyncMessage('❌ 下载失败', 'error');
                     }
                 } else if (!hasCloudData && hasLocalData) {
-                    // 本地有数据，云端为空 → 上传
                     showSyncMessage('📤 上传本地数据到云端...', '');
                     var uploaded = await syncToWebDAV();
                     if (uploaded) {
@@ -2112,7 +2213,6 @@
                         showSyncMessage('❌ 上传失败', 'error');
                     }
                 } else if (hasCloudData && hasLocalData) {
-                    // 两端都有数据 → 合并
                     showSyncMessage('🔀 合并数据...', '');
                     var merged = await syncMergeCore();
                     if (merged) {
@@ -2124,7 +2224,6 @@
                         showSyncMessage('❌ 合并失败', 'error');
                     }
                 } else {
-                    // 两端都为空
                     setSyncStatus('', '已配置');
                     showSyncMessage('ℹ️ 暂无数据，请新建日程', '');
                 }
@@ -2189,7 +2288,10 @@
                 showSyncMessage('ℹ️ 使用本地存储，点击 ⚙️ 配置同步', '');
             }
 
+            // 应用显示模式
+            applyDisplayMode(displayMode);
             render();
+
             if (!webdavConfig.user || !webdavConfig.pass) {
                 setSyncStatus('', '未配置');
             }
