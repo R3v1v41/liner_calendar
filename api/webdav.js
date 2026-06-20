@@ -1,70 +1,68 @@
 // api/webdav.js
-// Vercel Serverless 函数 - 坚果云 WebDAV 代理
-
 export default async function handler(req, res) {
-    // 1. 设置 CORS 响应头（让浏览器信任 Vercel 的响应）
+    // CORS 头
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, HEAD, OPTIONS, PROPFIND');
-    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, Depth, Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, HEAD, OPTIONS, PROPFIND, POST');
+    res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, Depth, Origin, x-target-url');
 
-    // 处理预检请求
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
     }
 
-    // 2. 从请求中获取坚果云地址和认证信息
-    const { url, method, headers, body } = req;
-    
-    // 客户端在请求头中传递目标 URL 和认证信息
-    const targetUrl = req.headers['x-target-url'];
-    const auth = req.headers['authorization'];
-
-    if (!targetUrl) {
-        return res.status(400).json({ error: 'Missing x-target-url header' });
-    }
-
-    if (!auth) {
-        return res.status(401).json({ error: 'Missing authorization header' });
+    // 只接受 POST 请求
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        // 3. 构建转发请求
-        const fetchOptions = {
+        // 解析请求体
+        var { method, url, headers, body } = req.body;
+
+        if (!url) {
+            return res.status(400).json({ error: 'Missing url in request body' });
+        }
+
+        if (!headers || !headers.Authorization) {
+            return res.status(401).json({ error: 'Missing authorization header' });
+        }
+
+        console.log('🔄 转发请求:', method, url);
+
+        // 构建转发请求
+        var fetchOptions = {
             method: method || 'GET',
             headers: {
-                'Authorization': auth,
-                'Content-Type': req.headers['content-type'] || 'application/json',
-                'Depth': req.headers['depth'] || '0'
+                'Authorization': headers.Authorization,
+                'Content-Type': headers['Content-Type'] || 'application/json'
             }
         };
 
-        // 如果有请求体，添加
-        if (body && method !== 'GET' && method !== 'HEAD') {
+        if (body) {
             fetchOptions.body = body;
         }
 
-        // 4. 转发请求到坚果云
-        console.log(`🔄 代理请求: ${method} ${targetUrl}`);
-        
-        const response = await fetch(targetUrl, fetchOptions);
+        // 转发到坚果云
+        var response = await fetch(url, fetchOptions);
 
-        // 5. 获取响应数据
-        let responseData;
-        const contentType = response.headers.get('content-type');
+        // 获取响应数据
+        var responseData;
+        var contentType = response.headers.get('content-type') || '';
 
-        if (contentType && contentType.includes('application/json')) {
+        if (contentType.includes('application/json')) {
             responseData = await response.json();
         } else {
             responseData = await response.text();
         }
 
-        // 6. 返回响应给客户端
-        res.status(response.status).json({
+        console.log('📡 响应状态:', response.status);
+
+        // 返回给前端
+        res.status(200).json({
             status: response.status,
             statusText: response.statusText,
-            data: responseData,
-            headers: Object.fromEntries(response.headers)
+            headers: Object.fromEntries(response.headers),
+            data: responseData
         });
 
     } catch (error) {
