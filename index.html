@@ -1376,16 +1376,13 @@
             pass: ''
         };
 
-        // 国内可用的 CORS 代理列表
-        var CORS_PROXIES = [
-            'https://api.allorigins.win/raw?url=',
-            'https://corsproxy.io/?',
-            'https://cors.sh/?'
-        ];
-        var currentProxyIndex = 0;
+        // ============================================================
+        // 三、Vercel 代理地址（部署后修改）
+        // ============================================================
+        var PROXY_URL = '/api/webdav';  // 相对路径，Vercel 自动适配
 
         // ============================================================
-        // 三、主题切换
+        // 四、主题切换
         // ============================================================
         function getPreferredTheme() {
             var saved = localStorage.getItem('theme');
@@ -1407,7 +1404,6 @@
             setTheme(current === 'dark' ? 'light' : 'dark');
         }
 
-        // 监听系统主题变化
         if (window.matchMedia) {
             window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
                 if (!localStorage.getItem('theme')) {
@@ -1417,7 +1413,7 @@
         }
 
         // ============================================================
-        // 四、工具函数
+        // 五、工具函数
         // ============================================================
         function formatDate(date) {
             return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate())
@@ -1451,7 +1447,7 @@
         }
 
         // ============================================================
-        // 五、存储（localStorage）
+        // 六、存储（localStorage）
         // ============================================================
         function saveTasksToStorage() {
             try {
@@ -1482,7 +1478,7 @@
         }
 
         // ============================================================
-        // 六、节假日数据
+        // 七、节假日数据
         // ============================================================
         function getBuiltinHolidayData(year) {
             if (year === 2026) {
@@ -1627,7 +1623,7 @@
         }
 
         // ============================================================
-        // 七、任务CRUD
+        // 八、任务CRUD
         // ============================================================
         function addTask(text, startDate, endDate, color) {
             tasks.push({
@@ -1703,7 +1699,7 @@
         }
 
         // ============================================================
-        // 八、弹窗管理
+        // 九、弹窗管理
         // ============================================================
         function openModalWithRange(startDate, endDate) {
             editingTaskId = null;
@@ -1786,7 +1782,7 @@
         }
 
         // ============================================================
-        // 九、渲染
+        // 十、渲染
         // ============================================================
         function render() {
             var body = document.getElementById('calendarBody');
@@ -1794,7 +1790,6 @@
             var today = new Date();
             var todayStr = formatDate(today);
 
-            // 星期行
             var weekdayRow = document.getElementById('weekdayRow');
             var wHtml = '<div class="weekday-placeholder"></div>';
             for (var i = 0; i < MAX_COLS; i++) {
@@ -1825,7 +1820,6 @@
                 html += '</div>';
                 html += '<div class="days-schedule-wrapper">';
 
-                // 日期行
                 html += '<div class="days-row">';
                 for (var j = 0; j < firstDayOfWeek; j++) {
                     html += '<div class="day-cell empty"></div>';
@@ -1866,7 +1860,6 @@
                 }
                 html += '</div>';
 
-                // 日程色块行
                 html += renderScheduleBars(month, year, daysInMonth, firstDayOfWeek, monthTasks);
 
                 html += '</div>';
@@ -1994,7 +1987,7 @@
         }
 
         // ============================================================
-        // 十、统计
+        // 十一、统计
         // ============================================================
         function getAllDatesWithTasks() {
             var dates = new Set();
@@ -2017,7 +2010,7 @@
         }
 
         // ============================================================
-        // 十一、拖动选择
+        // 十二、拖动选择
         // ============================================================
         var isDragging = false;
         var dragStartDate = null;
@@ -2112,7 +2105,7 @@
         }
 
         // ============================================================
-        // 十二、右键菜单
+        // 十三、右键菜单
         // ============================================================
         function showContextMenu(event, id) {
             event.preventDefault();
@@ -2150,7 +2143,7 @@
         });
 
         // ============================================================
-        // 十三、状态提示
+        // 十四、状态提示
         // ============================================================
         function showSyncStatus(type, icon, message) {
             var statusEl = document.getElementById('syncStatus');
@@ -2174,7 +2167,7 @@
         }
 
         // ============================================================
-        // 十四、年份切换
+        // 十五、年份切换
         // ============================================================
         function changeYear(delta) {
             currentYear += delta;
@@ -2196,7 +2189,7 @@
         }
 
         // ============================================================
-        // 十五、WebDAV - 多代理自动切换
+        // 十六、WebDAV - Vercel 代理
         // ============================================================
         function loadWebDAVConfig() {
             try {
@@ -2261,59 +2254,57 @@
             document.getElementById('webdavModal').classList.remove('active');
         }
 
-        // 核心WebDAV请求函数 - 自动尝试多个代理
-        async function webdavFetch(method, url, headers, body) {
-            var proxies = CORS_PROXIES;
-            var lastError = null;
+        // ===== Vercel 代理请求函数 =====
+        async function webdavProxyRequest(method, url, headers, body) {
+            var proxyUrl = PROXY_URL;
 
-            // 先尝试直接请求
+            var fetchOptions = {
+                method: 'POST',
+                headers: {
+                    'x-target-url': url,
+                    'authorization': headers['Authorization'] || '',
+                    'content-type': headers['Content-Type'] || 'application/json',
+                    'depth': headers['Depth'] || '0'
+                }
+            };
+
+            if (body) {
+                fetchOptions.body = body;
+            }
+
             try {
                 var controller = new AbortController();
-                var timeoutId = setTimeout(function() { controller.abort(); }, 15000);
-                var response = await fetch(url, {
-                    method: method,
-                    headers: headers,
-                    body: body,
-                    signal: controller.signal
-                });
+                var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
+                fetchOptions.signal = controller.signal;
+
+                var response = await fetch(proxyUrl, fetchOptions);
                 clearTimeout(timeoutId);
-                if (response.status !== 0) {
-                    return response;
+
+                if (!response.ok) {
+                    var errorText = await response.text();
+                    throw new Error('Proxy error ' + response.status + ': ' + errorText);
                 }
-            } catch (e) {
-                console.warn('直接请求失败:', e.message);
-                lastError = e;
-            }
 
-            // 再尝试每个代理
-            for (var i = 0; i < proxies.length; i++) {
-                try {
-                    var proxyUrl = proxies[i] + encodeURIComponent(url);
-                    var controller2 = new AbortController();
-                    var timeoutId2 = setTimeout(function() { controller2.abort(); }, 20000);
+                var result = await response.json();
 
-                    var response2 = await fetch(proxyUrl, {
-                        method: method,
-                        headers: headers,
-                        body: body,
-                        signal: controller2.signal
-                    });
-                    clearTimeout(timeoutId2);
-                    if (response2.status !== 0) {
-                        return response2;
+                return {
+                    ok: result.status >= 200 && result.status < 300,
+                    status: result.status,
+                    statusText: result.statusText,
+                    headers: new Headers(result.headers),
+                    json: async function() { return result.data; },
+                    text: async function() {
+                        if (typeof result.data === 'string') return result.data;
+                        return JSON.stringify(result.data);
                     }
-                } catch (e) {
-                    console.warn('代理 ' + i + ' 失败:', e.message);
-                    lastError = e;
-                    continue;
-                }
+                };
+            } catch (error) {
+                console.error('❌ 代理请求失败:', error);
+                throw error;
             }
-
-            // 所有方式都失败
-            throw lastError || new Error('所有连接方式均失败');
         }
 
-        // 测试WebDAV连接
+        // ===== 测试 WebDAV 连接 =====
         async function testWebDAV() {
             var url = document.getElementById('webdavUrl').value.trim();
             var user = document.getElementById('webdavUser').value.trim();
@@ -2333,61 +2324,54 @@
             }
 
             resultEl.className = 'test-result';
-            resultEl.textContent = '⏳ 测试连接中...（尝试多种方式）';
+            resultEl.textContent = '⏳ 测试连接中...（通过 Vercel 代理）';
 
             try {
                 var headers = {
                     'Authorization': 'Basic ' + btoa(user + ':' + pass)
                 };
 
-                // 尝试用HEAD方法
-                var response = await webdavFetch('HEAD', url, headers, null);
+                var response = await webdavProxyRequest('HEAD', url, headers, null);
 
-                if (response.status === 200 || response.status === 404 || response.status === 403) {
+                if (response.ok || response.status === 404 || response.status === 403) {
                     resultEl.className = 'test-result success';
                     resultEl.textContent = '✅ 连接成功！' + (response.status === 404 ? '文件不存在，将自动创建。' : '服务器可访问。');
                     return;
-                } else if (response.status === 401) {
-                    resultEl.className = 'test-result error';
-                    resultEl.textContent = '❌ 认证失败！请检查用户名和应用密码是否正确。';
-                    return;
-                } else {
-                    // 尝试GET方法
-                    try {
-                        var response2 = await webdavFetch('GET', url, headers, null);
-                        if (response2.status === 200 || response2.status === 404) {
-                            resultEl.className = 'test-result success';
-                            resultEl.textContent = '✅ 连接成功！' + (response2.status === 404 ? '文件不存在，将自动创建。' : '文件可访问。');
-                            return;
-                        } else if (response2.status === 401) {
-                            resultEl.className = 'test-result error';
-                            resultEl.textContent = '❌ 认证失败！请检查用户名和应用密码。';
-                            return;
-                        } else {
-                            resultEl.className = 'test-result error';
-                            resultEl.textContent = '❌ 连接失败 (HTTP ' + response2.status + ')，请检查服务器地址。';
-                        }
-                    } catch (e2) {
-                        resultEl.className = 'test-result error';
-                        resultEl.textContent = '❌ 连接失败：' + (e2.message || '未知错误');
+                }
+
+                if (response.status === 405) {
+                    response = await webdavProxyRequest('GET', url, headers, null);
+                    if (response.ok || response.status === 404) {
+                        resultEl.className = 'test-result success';
+                        resultEl.textContent = '✅ 连接成功！' + (response.status === 404 ? '文件不存在，将自动创建。' : '文件可访问。');
+                        return;
                     }
                 }
-            } catch (e) {
-                console.error('测试连接错误:', e);
-                var errorMsg = '❌ 连接失败：';
-                if (e.name === 'AbortError') {
-                    errorMsg += '请求超时，请检查网络连接。';
-                } else if (e.message && e.message.includes('Failed to fetch')) {
-                    errorMsg += '无法连接到服务器，请检查网络或使用代理。';
+
+                if (response.status === 401) {
+                    resultEl.className = 'test-result error';
+                    resultEl.textContent = '❌ 认证失败！请检查用户名和应用密码是否正确。';
                 } else {
-                    errorMsg += e.message || '未知错误';
+                    resultEl.className = 'test-result error';
+                    resultEl.textContent = '❌ 连接失败 (HTTP ' + response.status + ')，请检查服务器地址。';
+                }
+
+            } catch (error) {
+                console.error('测试连接错误:', error);
+                var errorMsg = '❌ 连接失败：';
+                if (error.message && error.message.includes('timeout')) {
+                    errorMsg += '请求超时，请检查网络。';
+                } else if (error.message && error.message.includes('fetch')) {
+                    errorMsg += '无法连接到代理服务器，请确认 Vercel 已部署。';
+                } else {
+                    errorMsg += error.message || '未知错误';
                 }
                 resultEl.className = 'test-result error';
                 resultEl.textContent = errorMsg;
             }
         }
 
-        // 同步数据到WebDAV
+        // ===== 同步数据到 WebDAV =====
         async function syncToWebDAV() {
             if (!webdavConfig.user || !webdavConfig.pass) {
                 showSyncStatus('error', '⚠️', '请先配置WebDAV');
@@ -2407,7 +2391,7 @@
                     'Content-Type': 'application/json'
                 };
 
-                var response = await webdavFetch('PUT', webdavConfig.url, headers, JSON.stringify(data, null, 2));
+                var response = await webdavProxyRequest('PUT', webdavConfig.url, headers, JSON.stringify(data, null, 2));
 
                 if (response.ok || response.status === 201) {
                     showSyncStatus('success', '✅', '数据已同步到坚果云');
@@ -2418,29 +2402,19 @@
                     updateWebDAVStatus(false);
                     return false;
                 } else {
-                    var text = await response.text();
-                    console.error('同步失败:', text);
                     showSyncStatus('error', '❌', '同步失败 (HTTP ' + response.status + ')');
                     updateWebDAVStatus(false);
                     return false;
                 }
-            } catch (e) {
-                console.error('同步错误:', e);
-                var msg = '同步失败：';
-                if (e.name === 'AbortError') {
-                    msg += '请求超时，请检查网络';
-                } else if (e.message && e.message.includes('Failed to fetch')) {
-                    msg += '网络连接失败，请检查网络';
-                } else {
-                    msg += e.message || '未知错误';
-                }
-                showSyncStatus('error', '❌', msg);
+            } catch (error) {
+                console.error('同步错误:', error);
+                showSyncStatus('error', '❌', '同步失败：' + (error.message || '未知错误'));
                 updateWebDAVStatus(false);
                 return false;
             }
         }
 
-        // 从WebDAV加载数据
+        // ===== 从 WebDAV 加载数据 =====
         async function loadFromWebDAV() {
             if (!webdavConfig.user || !webdavConfig.pass) {
                 return false;
@@ -2451,7 +2425,7 @@
                     'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass)
                 };
 
-                var response = await webdavFetch('GET', webdavConfig.url, headers, null);
+                var response = await webdavProxyRequest('GET', webdavConfig.url, headers, null);
 
                 if (!response.ok) {
                     if (response.status === 404) {
@@ -2479,8 +2453,8 @@
                     return true;
                 }
                 return false;
-            } catch (e) {
-                console.warn('从WebDAV加载失败:', e);
+            } catch (error) {
+                console.warn('从WebDAV加载失败:', error);
                 return false;
             }
         }
@@ -2504,7 +2478,7 @@
         }
 
         // ============================================================
-        // 十六、File System Access API（简化版）
+        // 十七、File System Access API（简化版）
         // ============================================================
         async function loadDataFromFile() {
             return false;
@@ -2515,7 +2489,7 @@
         }
 
         // ============================================================
-        // 十七、PWA
+        // 十八、PWA
         // ============================================================
         var deferredPrompt = null;
 
@@ -2549,12 +2523,12 @@
         }
 
         // ============================================================
-        // 十八、Service Worker（已移除）
+        // 十九、Service Worker（已移除）
         // ============================================================
         // 已移除 Service Worker 注册，所有浏览器均可正常打开
 
         // ============================================================
-        // 十九、初始化
+        // 二十、初始化
         // ============================================================
         document.getElementById('colorOptions').addEventListener('click', function(e) {
             var dot = e.target.closest('.color-dot');

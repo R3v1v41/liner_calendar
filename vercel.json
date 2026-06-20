@@ -1,0 +1,17 @@
+{
+    "functions": {
+        "api/webdav.js": {
+            "maxDuration": 30
+        }
+    },
+    "headers": [
+        {
+            "source": "/api/(.*)",
+            "headers": [
+                { "key": "Access-Control-Allow-Origin", "value": "*" },
+                { "key": "Access-Control-Allow-Methods", "value": "GET, PUT, HEAD, OPTIONS, PROPFIND" },
+                { "key": "Access-Control-Allow-Headers", "value": "Authorization, Content-Type, Depth, x-target-url, Origin" }
+            ]
+        }
+    ]
+}
