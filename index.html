@@ -1956,6 +1956,254 @@
             document.getElementById('webdavModal').classList.remove('active');
         }
 
+
+        // ============================================================
+        // WebDAV功能 - 最终修复版
+        // ============================================================
+
+        // 测试WebDAV连接（最终修复版 - 使用OPTIONS方法）
+        async function testWebDAV() {
+            var url = document.getElementById('webdavUrl').value.trim();
+            var user = document.getElementById('webdavUser').value.trim();
+            var pass = document.getElementById('webdavPass').value.trim();
+            var resultEl = document.getElementById('webdavTestResult');
+
+            if (!url || !user || !pass) {
+                resultEl.className = 'test-result error';
+                resultEl.textContent = '⚠️ 请填写完整的连接信息';
+                return;
+            }
+
+            if (!url.startsWith('https://')) {
+                resultEl.className = 'test-result error';
+                resultEl.textContent = '⚠️ 服务器地址必须以 https:// 开头';
+                return;
+            }
+
+            resultEl.className = 'test-result';
+            resultEl.textContent = '⏳ 测试连接中...';
+
+            try {
+                // 方法1：使用OPTIONS预检
+                var controller = new AbortController();
+                var timeoutId = setTimeout(function() { controller.abort(); }, 15000);
+
+                var response = await fetch(url, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Authorization': 'Basic ' + btoa(user + ':' + pass),
+                        'Origin': window.location.origin
+                    },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                // OPTIONS成功或返回405都表示服务器可达
+                if (response.status === 200 || response.status === 204 || response.status === 405) {
+                    resultEl.className = 'test-result success';
+                    resultEl.textContent = '✅ 连接成功！服务器可访问。';
+                    return;
+                }
+
+                // 如果OPTIONS失败，尝试用HEAD
+                throw new Error('OPTIONS失败，尝试HEAD');
+
+            } catch (e) {
+                // 方法2：使用HEAD方法
+                try {
+                    var controller2 = new AbortController();
+                    var timeoutId2 = setTimeout(function() { controller2.abort(); }, 15000);
+
+                    var response2 = await fetch(url, {
+                        method: 'HEAD',
+                        headers: {
+                            'Authorization': 'Basic ' + btoa(user + ':' + pass)
+                        },
+                        signal: controller2.signal
+                    });
+
+                    clearTimeout(timeoutId2);
+
+                    if (response2.status === 200 || response2.status === 404) {
+                        resultEl.className = 'test-result success';
+                        resultEl.textContent = '✅ 连接成功！' + (response2.status === 404 ? '文件不存在，将自动创建。' : '文件可访问。');
+                        return;
+                    }
+
+                    if (response2.status === 401) {
+                        resultEl.className = 'test-result error';
+                        resultEl.textContent = '❌ 认证失败！请检查用户名和应用密码是否正确。';
+                        return;
+                    }
+
+                    throw new Error('HEAD失败，HTTP ' + response2.status);
+
+                } catch (e2) {
+                    // 方法3：尝试GET
+                    try {
+                        var controller3 = new AbortController();
+                        var timeoutId3 = setTimeout(function() { controller3.abort(); }, 15000);
+
+                        var response3 = await fetch(url, {
+                            method: 'GET',
+                            headers: {
+                                'Authorization': 'Basic ' + btoa(user + ':' + pass)
+                            },
+                            signal: controller3.signal
+                        });
+
+                        clearTimeout(timeoutId3);
+
+                        if (response3.status === 200 || response3.status === 404) {
+                            resultEl.className = 'test-result success';
+                            resultEl.textContent = '✅ 连接成功！' + (response3.status === 404 ? '文件不存在，将自动创建。' : '文件可访问。');
+                            return;
+                        }
+
+                        if (response3.status === 401) {
+                            resultEl.className = 'test-result error';
+                            resultEl.textContent = '❌ 认证失败！请检查用户名和应用密码是否正确。';
+                            return;
+                        }
+
+                        throw new Error('GET失败，HTTP ' + response3.status);
+
+                    } catch (e3) {
+                        console.error('所有连接方法均失败:', e3);
+                        var errorMsg = '❌ 连接失败：';
+
+                        if (e3.name === 'AbortError' || e3.name === 'TimeoutError') {
+                            errorMsg += '请求超时，请检查网络连接。';
+                        } else if (e3.message && e3.message.includes('Failed to fetch')) {
+                            errorMsg += '跨域请求被阻止。请确认：\n1. 使用 GitHub Pages 或本地服务器访问\n2. 坚果云服务器地址正确\n3. 网络连接正常';
+                        } else if (e3.message) {
+                            errorMsg += e3.message;
+                        } else {
+                            errorMsg += '未知错误，请检查控制台。';
+                        }
+
+                        resultEl.className = 'test-result error';
+                        resultEl.textContent = errorMsg;
+                    }
+                }
+            }
+        }
+
+        // 同步数据到WebDAV（最终修复版）
+        async function syncToWebDAV() {
+            if (!webdavConfig.user || !webdavConfig.pass) {
+                showSyncStatus('error', '⚠️', '请先配置WebDAV');
+                return false;
+            }
+
+            var data = {
+                tasks: tasks,
+                version: '1.0',
+                updatedAt: new Date().toISOString(),
+                hash: getDataVersion()
+            };
+
+            try {
+                var controller = new AbortController();
+                var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
+
+                var response = await fetch(webdavConfig.url, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data, null, 2),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (response.ok || response.status === 201) {
+                    showSyncStatus('success', '✅', '数据已同步到坚果云');
+                    updateWebDAVStatus(true);
+                    return true;
+                } else if (response.status === 401) {
+                    showSyncStatus('error', '❌', '认证失败，请检查用户名和应用密码');
+                    updateWebDAVStatus(false);
+                    return false;
+                } else {
+                    var text = await response.text();
+                    console.error('同步失败:', text);
+                    showSyncStatus('error', '❌', '同步失败 (HTTP ' + response.status + ')');
+                    updateWebDAVStatus(false);
+                    return false;
+                }
+            } catch (e) {
+                console.error('同步错误:', e);
+                var msg = '同步失败：';
+                if (e.name === 'AbortError') {
+                    msg += '请求超时，请检查网络';
+                } else if (e.message && e.message.includes('Failed to fetch')) {
+                    msg += '网络连接失败，请检查网络或使用 VPN';
+                } else {
+                    msg += e.message || '未知错误';
+                }
+                showSyncStatus('error', '❌', msg);
+                updateWebDAVStatus(false);
+                return false;
+            }
+        }
+
+        // 从WebDAV加载数据（最终修复版）
+        async function loadFromWebDAV() {
+            if (!webdavConfig.user || !webdavConfig.pass) {
+                return false;
+            }
+
+            try {
+                var controller = new AbortController();
+                var timeoutId = setTimeout(function() { controller.abort(); }, 15000);
+
+                var response = await fetch(webdavConfig.url, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass)
+                    },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        console.log('📄 文件不存在，将创建新文件');
+                        return true;
+                    }
+                    if (response.status === 401) {
+                        console.warn('认证失败');
+                        return false;
+                    }
+                    throw new Error('HTTP ' + response.status);
+                }
+
+                var data = await response.json();
+                if (data && data.tasks) {
+                    tasks = data.tasks.filter(function(t) { return t.id && t.startDate && t.endDate; });
+                    tasks.forEach(function(t) {
+                        if (!t.color) t.color = defaultColor;
+                        if (t.text === undefined) t.text = '';
+                    });
+                    saveTasksToStorage();
+                    render();
+                    showSyncStatus('success', '✅', '从坚果云加载了 ' + tasks.length + ' 项事项');
+                    updateWebDAVStatus(true);
+                    return true;
+                }
+                return false;
+            } catch (e) {
+                console.warn('从WebDAV加载失败:', e);
+                return false;
+            }
+        }
+
+        /*
         // 测试WebDAV连接（修复版）
         async function testWebDAV() {
             var url = document.getElementById('webdavUrl').value.trim();
@@ -2022,6 +2270,9 @@
                 resultEl.textContent = errorMsg;
             }
         }
+
+        
+
 
         // 同步数据到WebDAV（修复版）
         async function syncToWebDAV() {
@@ -2137,6 +2388,8 @@
                 return false;
             }
         }
+        
+        */
 
         async function saveWebDAVConfig() {
             var url = document.getElementById('webdavUrl').value.trim();
