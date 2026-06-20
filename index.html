@@ -10,7 +10,28 @@
     <meta name="apple-mobile-web-app-title" content="年度日历">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
     <style>
+        /* ===== 全局重置 & 主题变量 ===== */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            width: 100%; min-height: 100vh;
+            background: var(--bg-body);
+            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+            color: var(--text-primary);
+            overflow-x: hidden;
+            transition: background 0.3s, color 0.3s;
+            -webkit-user-select: none; user-select: none;
+        }
+        .app-container {
+            width: 100%; min-height: 100vh;
+            background: var(--bg-container);
+            padding: 14px 18px 24px;
+            overflow-x: auto;
+            transition: background 0.3s;
+        }
+
+        /* ===== 主题颜色 ===== */
         :root {
+            /* 亮色主题 */
             --bg-body: #f0f2f5;
             --bg-container: #ffffff;
             --bg-card: #fafcff;
@@ -125,21 +146,17 @@
             --transition-med: 0.2s;
             --transition-slow: 0.3s;
 
-            /* === 显示模式变量 === */
-            --day-column-flex: 1 1 0;
-            --day-column-min-width: 28px;
-            --schedule-bar-cell-flex: 1 1 0;
-            --schedule-bar-cell-min-width: 28px;
+            /* ===== 列宽控制（grid） ===== */
+            --col-template: repeat(37, 1fr);
+            --col-gap: 3px;
         }
 
-        /* === 固定列宽模式 === */
+        /* ===== 固定列宽模式 ===== */
         :root.fixed-width {
-            --day-column-flex: 0 0 5em;
-            --day-column-min-width: 5em;
-            --schedule-bar-cell-flex: 0 0 5em;
-            --schedule-bar-cell-min-width: 5em;
+            --col-template: repeat(37, 5em);
         }
 
+        /* ===== 暗色主题 ===== */
         [data-theme="dark"] {
             --bg-body: #0f0f1a;
             --bg-container: #16213e;
@@ -244,15 +261,9 @@
             --shadow-save-btn: 0 2px 8px rgba(58,122,255,0.3);
             --shadow-save-btn-hover: 0 4px 16px rgba(58,122,255,0.4);
             --shadow-webdav-save: 0 2px 8px rgba(58,122,255,0.3);
-
-            --scrollbar-track: #1a1a2e;
-            --scrollbar-thumb: #3a4a6a;
-            --scrollbar-thumb-hover: #4a5a7a;
-
-            --schedule-text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-            --schedule-border: 1px solid rgba(255,255,255,0.15);
         }
 
+        /* ===== 暗色下的日程配色 ===== */
         [data-theme="dark"] .schedule-bar.color-pink { background: #d46a7a; color: #fff; }
         [data-theme="dark"] .schedule-bar.color-peach { background: #d4805a; color: #fff; }
         [data-theme="dark"] .schedule-bar.color-yellow { background: #c4a840; color: #fff; }
@@ -266,35 +277,18 @@
         [data-theme="dark"] .schedule-bar.color-sage { background: #6a9a6a; color: #fff; }
         [data-theme="dark"] .schedule-bar.color-sky { background: #5a8aba; color: #fff; }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body {
-            width: 100%; min-height: 100vh;
-            background: var(--bg-body);
-            font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-            color: var(--text-primary);
-            transition: background var(--transition-slow), color var(--transition-slow);
-            overflow-x: hidden;
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-        .app-container {
-            width: 100%; min-height: 100vh;
-            background: var(--bg-container);
-            padding: 14px 18px 24px;
-            overflow-x: auto;
-            transition: background var(--transition-slow);
-        }
+        /* ===== 滚动条 ===== */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+        ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 
         /* ===== 头部 ===== */
         .header {
             display: flex; justify-content: space-between; align-items: center;
             flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
         }
-        .header h1 {
-            font-size: 20px; font-weight: 700; color: var(--text-primary);
-            white-space: nowrap; transition: color var(--transition-slow);
-        }
+        .header h1 { font-size: 20px; font-weight: 700; color: var(--text-primary); white-space: nowrap; transition: color 0.3s; }
         .header h1 span { color: #2a5cff; }
         .header-actions {
             display: flex; gap: 4px; flex-wrap: wrap; align-items: center;
@@ -304,70 +298,44 @@
             border: none; padding: 6px 14px; border-radius: 30px;
             font-size: 12px; font-weight: 500; color: var(--text-btn-cancel);
             cursor: pointer; font-family: inherit;
-            transition: var(--transition-fast); white-space: nowrap;
+            transition: 0.15s; white-space: nowrap;
         }
         .header-actions button:hover { background: var(--bg-btn-cancel-hover); }
-        .header-actions .btn-primary {
-            background: var(--bg-btn-primary); color: #fff;
-        }
+        .header-actions .btn-primary { background: var(--bg-btn-primary); color: var(--text-btn-primary); }
         .header-actions .btn-primary:hover { background: var(--bg-btn-primary-hover); }
-        .header-actions .btn-today {
-            background: var(--bg-day-today); color: var(--text-day-today);
-        }
-        .header-actions .btn-update-holiday {
-            background: var(--bg-day-adjust); color: var(--text-day-adjust);
-        }
-        .header-actions .btn-webdav {
-            background: var(--bg-btn-webdav); color: var(--text-btn-webdav);
-        }
+        .header-actions .btn-today { background: var(--bg-day-today); color: var(--text-day-today); }
+        .header-actions .btn-update-holiday { background: var(--bg-day-adjust); color: var(--text-day-adjust); }
+        .header-actions .btn-webdav { background: var(--bg-btn-webdav); color: var(--text-btn-webdav); }
         .header-actions .btn-webdav:hover { background: var(--bg-btn-webdav-hover); }
 
-        /* ===== 同步按钮组 ===== */
-        .sync-btn-group {
-            display: flex; gap: 4px; align-items: center;
-        }
+        .sync-btn-group { display: flex; gap: 4px; align-items: center; }
         .sync-btn-group .sync-btn {
             border: none; padding: 5px 12px; border-radius: 30px;
             font-size: 11px; font-weight: 600; cursor: pointer;
-            font-family: inherit; transition: var(--transition-fast);
-            white-space: nowrap; display: flex; align-items: center; gap: 4px;
+            font-family: inherit; transition: 0.15s; white-space: nowrap;
         }
-        .sync-btn-group .btn-upload {
-            background: var(--bg-btn-upload); color: #2e7d32;
-        }
+        .sync-btn-group .btn-upload { background: var(--bg-btn-upload); color: #2e7d32; }
         .sync-btn-group .btn-upload:hover { background: var(--bg-btn-upload-hover); }
-        .sync-btn-group .btn-download {
-            background: var(--bg-btn-download); color: #b85a0a;
-        }
+        .sync-btn-group .btn-download { background: var(--bg-btn-download); color: #b85a0a; }
         .sync-btn-group .btn-download:hover { background: var(--bg-btn-download-hover); }
-        .sync-btn-group .btn-merge {
-            background: var(--bg-btn-merge); color: #1a5fb0;
-        }
+        .sync-btn-group .btn-merge { background: var(--bg-btn-merge); color: #1a5fb0; }
         .sync-btn-group .btn-merge:hover { background: var(--bg-btn-merge-hover); }
-        .sync-btn-group .sync-divider {
-            color: var(--text-muted); font-size: 10px; padding: 0 2px;
-        }
 
-        /* ===== 显示模式切换按钮 ===== */
         .btn-mode {
             background: var(--bg-btn-cancel);
             border: none; padding: 5px 12px; border-radius: 30px;
             font-size: 11px; font-weight: 500; color: var(--text-btn-cancel);
             cursor: pointer; font-family: inherit;
-            transition: var(--transition-fast); white-space: nowrap;
+            transition: 0.15s; white-space: nowrap;
         }
         .btn-mode:hover { background: var(--bg-btn-cancel-hover); }
-        .btn-mode.active {
-            background: var(--bg-btn-primary); color: #fff;
-        }
-        .btn-mode.active:hover { background: var(--bg-btn-primary-hover); }
-
         .btn-theme { font-size: 14px; padding: 5px 12px; }
         .btn-theme:hover { background: var(--bg-btn-cancel-hover); transform: scale(1.05); }
 
         .sync-status-badge {
             font-size: 10px; padding: 4px 12px; border: 1px solid var(--border-color);
             min-width: 56px; text-align: center;
+            transition: background 0.3s, color 0.3s, border-color 0.3s;
         }
         .sync-status-badge.synced {
             background: var(--bg-sync-success); color: var(--text-sync-success);
@@ -391,25 +359,26 @@
             display: flex; justify-content: center; align-items: center;
             gap: 16px; margin-bottom: 12px; padding: 6px 0 10px;
             border-bottom: 2px solid var(--border-color);
-            transition: border-color var(--transition-slow);
+            transition: border-color 0.3s;
         }
         .year-nav button {
             background: none; border: none; font-size: 18px; cursor: pointer;
             color: var(--text-muted); padding: 2px 12px; border-radius: 6px;
-            transition: var(--transition-fast);
+            transition: 0.15s;
         }
         .year-nav button:hover { color: var(--text-day-today); background: var(--bg-btn-cancel); }
         .year-nav .year-label {
             font-size: 20px; font-weight: 700; color: var(--text-primary);
-            min-width: 70px; text-align: center; transition: color var(--transition-slow);
+            min-width: 70px; text-align: center;
+            transition: color 0.3s;
         }
 
         /* ===== 状态提示 ===== */
         .sync-status {
             display: none; align-items: center; gap: 8px; padding: 6px 14px;
-            border-radius: 8px; font-size: 12px; background: var(--bg-sync-warning);
-            border: 1px solid var(--border-color); color: var(--text-muted);
-            margin-bottom: 10px; transition: background var(--transition-slow);
+            border-radius: 8px; font-size: 12px; background: var(--bg-status);
+            border: 1px solid var(--border-sync-warning); color: var(--text-status);
+            margin-bottom: 10px; transition: background 0.3s, border-color 0.3s, color 0.3s;
         }
         .sync-status.success {
             background: var(--bg-sync-success); color: var(--text-sync-success);
@@ -424,67 +393,141 @@
             font-size: 16px; color: var(--text-muted);
         }
 
-        /* ===== 日历核心 ===== */
+        /* ===== 日历核心（grid） ===== */
         .calendar-scroll { overflow-x: auto; padding-bottom: 6px; }
+
+        /* ===== 星期行 ===== */
         .weekday-row {
-            display: flex; align-items: stretch;
-            background: var(--bg-weekday); border-radius: 8px 8px 0 0;
-            border: 1px solid var(--border-color); border-bottom: none;
-            padding: 4px 0; min-height: 34px; width: 100%;
-            transition: background var(--transition-slow), border-color var(--transition-slow);
+            display: grid;
+            grid-template-columns: 56px var(--col-template);
+            gap: var(--col-gap);
+            background: var(--bg-weekday);
+            border-radius: 8px 8px 0 0;
+            border: 1px solid var(--border-weekday);
+            border-bottom: none;
+            padding: 4px 0;
+            min-height: 34px;
+            width: fit-content;
+            min-width: 100%;
+            transition: background 0.3s, border-color 0.3s;
         }
-        .weekday-row .weekday-placeholder { flex: 0 0 56px; min-width: 56px; }
+        .weekday-row .weekday-placeholder {
+            grid-column: 1;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 600; font-size: 12px; color: var(--text-month-label);
+            background: var(--bg-weekday);
+            padding: 2px;
+        }
         .weekday-row .weekday-item {
-            flex: var(--day-column-flex);
-            min-width: var(--day-column-min-width);
-            text-align: center;
-            font-size: 11px; font-weight: 600; color: var(--text-muted);
-            padding: 2px; overflow: hidden; white-space: nowrap;
-            transition: color var(--transition-slow), flex var(--transition-fast), min-width var(--transition-fast);
+            text-align: center; font-size: 11px; font-weight: 600;
+            color: var(--text-muted); padding: 2px 0;
+            overflow: hidden; white-space: nowrap;
+            transition: color 0.3s;
         }
         .weekday-row .weekday-item.weekend { color: var(--text-weekend); }
 
-        .calendar-body { display: flex; flex-direction: column; gap: 3px; width: 100%; }
+        .calendar-body {
+            display: flex; flex-direction: column; gap: 3px; width: fit-content; min-width: 100%;
+        }
+
+        /* ===== 每个月行 ===== */
         .month-row {
-            display: flex; border-radius: 0 0 8px 8px;
+            display: flex; flex-direction: column;
+            border-radius: 0 0 8px 8px;
             border: 1px solid var(--border-color);
-            background: var(--bg-card); overflow: hidden; width: 100%;
-            transition: background var(--transition-slow), border-color var(--transition-slow);
+            background: var(--bg-card);
+            overflow: hidden;
+            width: 100%;
+            transition: background 0.3s, border-color 0.3s;
         }
         .month-row:hover { background: var(--bg-card-hover); border-color: var(--border-day-today); }
-        .month-row-header { display: flex; align-items: stretch; min-height: 40px; width: 100%; }
+
+        .month-row-header {
+            display: grid;
+            grid-template-columns: 56px var(--col-template);
+            gap: var(--col-gap);
+            align-items: stretch;
+            min-height: 40px;
+            width: 100%;
+        }
         .month-label {
-            flex: 0 0 56px; min-width: 56px; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; background: var(--bg-weekday);
+            grid-column: 1;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: var(--bg-weekday);
             font-weight: 600; font-size: 13px; color: var(--text-month-label);
             padding: 2px; border-right: 1px solid var(--border-color);
-            line-height: 1.2; transition: background var(--transition-slow);
+            line-height: 1.2;
+            transition: background 0.3s, color 0.3s, border-color 0.3s;
         }
         .month-label .month-name { font-size: 14px; }
         .month-label .month-days { font-size: 9px; font-weight: 400; color: var(--text-muted); }
 
         .days-schedule-wrapper {
-            flex: 1; display: flex; flex-direction: column;
-            padding: 3px 0; gap: 2px; min-width: 0; overflow: hidden;
+            grid-column: 2 / -1;
+            display: flex; flex-direction: column;
+            padding: 3px 0; gap: 2px; min-width: 0;
+        }
+
+        /* ===== 日期行 ===== */
+        .days-row {
+            display: grid;
+            grid-template-columns: repeat(37, 1fr);
+            gap: var(--col-gap);
+            min-height: 32px;
+            width: 100%;
+        }
+        /* 固定列宽模式下，grid 列宽由父级 .month-row-header 控制，但这里需要同样使用 var(--col-template) */
+        .month-row-header .days-row {
+            grid-template-columns: repeat(37, 1fr);
+        }
+        /* 实际上，应该让 .days-row 继承父级网格，但为了清晰，我们直接使用相同的模板 */
+        /* 由于父级已经是 grid，我们可以让 .days-schedule-wrapper 内部再用 grid，但这样嵌套复杂。更好的方式：直接用 .month-row-header 的网格包含日期行和色块行。 */
+        /* 但为了保持代码清晰，我重新设计：将日期行和色块行作为独立的 grid，但列数固定37。 */
+        /* 由于前面已经定义了 :root 中的 --col-template，我们直接使用。 */
+
+        /* 重新调整：.month-row-header 为 flex 布局，左侧月份标签，右侧 wrapper 使用 grid */
+        .month-row-header {
+            display: flex;
+            align-items: stretch;
+            min-height: 40px;
+            width: 100%;
+        }
+        .month-label {
+            flex: 0 0 56px;
+            min-width: 56px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            background: var(--bg-weekday);
+            font-weight: 600; font-size: 13px; color: var(--text-month-label);
+            padding: 2px; border-right: 1px solid var(--border-color);
+            line-height: 1.2;
+            transition: background 0.3s, color 0.3s, border-color 0.3s;
+        }
+        .days-schedule-wrapper {
+            flex: 1;
+            display: flex; flex-direction: column;
+            padding: 3px 0; gap: 2px; min-width: 0;
+            overflow-x: auto;
         }
         .days-row, .schedule-bars-row {
-            display: flex; flex-wrap: nowrap; gap: 2px;
-            align-items: stretch; width: 100%; padding: 0 3px 0 0;
+            display: grid;
+            grid-template-columns: var(--col-template);
+            gap: var(--col-gap);
+            width: fit-content;
+            min-width: 100%;
         }
         .days-row { min-height: 32px; }
         .schedule-bars-row { min-height: 28px; }
 
+        /* ===== 日期格 ===== */
         .day-cell {
-            flex: var(--day-column-flex);
-            min-width: var(--day-column-min-width);
             height: 32px; border-radius: 5px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             background: var(--bg-day); border: 1.5px solid var(--border-day);
             cursor: pointer; position: relative; font-size: 12px; font-weight: 500;
             color: var(--text-day-num); overflow: hidden;
-            transition: background var(--transition-fast), border-color var(--transition-fast),
-                        transform var(--transition-fast), color var(--transition-fast),
-                        flex var(--transition-fast), min-width var(--transition-fast);
+            transition: background 0.15s, border-color 0.15s, transform 0.15s, color 0.15s;
             touch-action: none;
         }
         .day-cell:active { transform: scale(0.95); }
@@ -531,14 +574,12 @@
 
         /* ===== 日程色块 ===== */
         .schedule-bar-placeholder {
-            flex: var(--schedule-bar-cell-flex);
-            min-width: var(--schedule-bar-cell-min-width);
             height: 28px;
+            background: transparent;
         }
         .schedule-bar-cell {
-            flex: var(--schedule-bar-cell-flex);
-            min-width: var(--schedule-bar-cell-min-width);
-            height: 28px; position: relative;
+            height: 28px;
+            position: relative;
         }
         .schedule-bar {
             position: absolute; top: 0; left: 0; height: 28px; width: 100%;
@@ -548,7 +589,7 @@
             padding: 0 4px; z-index: 5;
             box-shadow: var(--shadow-schedule); border: var(--schedule-border);
             text-shadow: var(--schedule-text-shadow);
-            transition: transform var(--transition-med), box-shadow var(--transition-med);
+            transition: transform 0.2s, box-shadow 0.2s;
         }
         .schedule-bar:active { transform: scale(0.95); }
         .schedule-bar:hover { transform: scaleY(1.1); z-index: 10; box-shadow: var(--shadow-schedule-hover); }
@@ -562,7 +603,7 @@
             border: 2px solid var(--bg-container); font-size: 9px; font-weight: 700;
             line-height: 12px; text-align: center; cursor: pointer;
             opacity: 0; transform: scale(0.5);
-            transition: opacity var(--transition-med), transform var(--transition-med);
+            transition: opacity 0.2s, transform 0.2s;
             box-shadow: var(--shadow-delete-btn); z-index: 20; pointer-events: none;
         }
         .schedule-bar:hover .schedule-delete-btn {
@@ -572,7 +613,7 @@
             background: var(--bg-btn-delete-hover); transform: scale(1.1);
         }
 
-        /* ===== 配色 ===== */
+        /* ===== 日程配色 ===== */
         .schedule-bar.color-pink { background: #FFB5C2; }
         .schedule-bar.color-peach { background: #FFB07C; }
         .schedule-bar.color-yellow { background: #FADB7A; }
@@ -606,7 +647,7 @@
             padding: 6px 0; min-width: 150px; z-index: 9999;
             border: 1px solid var(--border-context);
             animation: contextIn 0.15s ease;
-            transition: background var(--transition-slow);
+            transition: background 0.3s, border-color 0.3s;
         }
         .context-menu.active { display: block; }
         @keyframes contextIn {
@@ -616,11 +657,12 @@
         .context-menu .context-item {
             padding: 8px 18px; font-size: 13px; color: var(--text-context);
             cursor: pointer; display: flex; align-items: center; gap: 8px;
-            transition: background var(--transition-fast); font-family: inherit;
-            border: none; background: transparent; width: 100%; text-align: left;
+            transition: 0.1s; font-family: inherit; border: none;
+            background: transparent; width: 100%; text-align: left;
         }
         .context-menu .context-item:hover { background: var(--bg-context-hover); }
         .context-menu .context-item.danger { color: var(--text-context-danger); }
+        .context-menu .context-item.danger:hover { background: var(--bg-context-danger-hover); }
         .context-menu .context-divider {
             height: 1px; background: var(--border-color); margin: 4px 12px;
         }
@@ -631,7 +673,7 @@
             border-top: 2px solid var(--border-color);
             display: flex; justify-content: space-between; flex-wrap: wrap;
             gap: 6px; font-size: 11px; color: var(--text-muted);
-            transition: border-color var(--transition-slow), color var(--transition-slow);
+            transition: border-color 0.3s, color 0.3s;
         }
         .footer-stats .stat-number { font-weight: 600; color: var(--text-secondary); }
 
@@ -646,7 +688,7 @@
             background: var(--bg-modal); border-radius: 16px; padding: 24px 28px;
             max-width: 400px; width: 100%; box-shadow: var(--shadow-modal);
             animation: modalIn 0.2s ease;
-            transition: background var(--transition-slow);
+            transition: background 0.3s;
         }
         @keyframes modalIn {
             from { opacity: 0; transform: translateY(16px) scale(0.96); }
@@ -668,7 +710,7 @@
             border: 2px solid var(--border-input); border-radius: 8px;
             font-size: 13px; font-family: inherit;
             background: var(--bg-input); color: var(--text-primary);
-            transition: border-color var(--transition-fast), background var(--transition-fast);
+            transition: border-color 0.15s, background 0.15s;
         }
         .modal-box input:focus, .modal-box textarea:focus {
             outline: none; border-color: var(--border-input-focus);
@@ -687,7 +729,7 @@
         .modal-box .color-options .color-dot {
             width: 30px; height: 30px; border-radius: 50%;
             border: 3px solid transparent; cursor: pointer;
-            transition: transform var(--transition-fast), border-color var(--transition-fast);
+            transition: transform 0.15s, border-color 0.15s;
         }
         .modal-box .color-options .color-dot:hover { transform: scale(1.08); }
         .modal-box .color-options .color-dot.active {
@@ -701,8 +743,7 @@
         .modal-actions button {
             padding: 8px 20px; border-radius: 30px; font-size: 13px;
             font-weight: 600; border: none; cursor: pointer; font-family: inherit;
-            transition: transform var(--transition-fast), box-shadow var(--transition-fast),
-                        background var(--transition-fast), color var(--transition-fast);
+            transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
         }
         .modal-actions .btn-cancel {
             background: var(--bg-btn-cancel); color: var(--text-btn-cancel);
@@ -711,7 +752,7 @@
             background: var(--bg-btn-cancel-hover); transform: translateY(-1px);
         }
         .modal-actions .btn-save {
-            background: var(--bg-btn-primary); color: #fff;
+            background: var(--bg-btn-primary); color: var(--text-btn-primary);
             box-shadow: var(--shadow-save-btn);
         }
         .modal-actions .btn-save:hover {
@@ -726,7 +767,7 @@
         }
         #deleteBtnContainer { display: none; margin-right: auto; }
 
-        /* ===== WebDAV 弹窗 ===== */
+        /* ===== WebDAV弹窗 ===== */
         .webdav-modal .modal-box { max-width: 440px; }
         .webdav-modal .form-group { margin-bottom: 12px; }
         .webdav-modal .form-group label {
@@ -738,7 +779,7 @@
             border: 2px solid var(--border-input); border-radius: 8px;
             font-size: 13px; font-family: inherit;
             background: var(--bg-input); color: var(--text-primary);
-            transition: border-color var(--transition-fast), background var(--transition-fast);
+            transition: border-color 0.15s, background 0.15s;
         }
         .webdav-modal .form-group input:focus {
             outline: none; border-color: var(--border-input-focus);
@@ -765,15 +806,15 @@
         .webdav-actions button {
             padding: 8px 18px; border-radius: 30px; font-size: 13px;
             font-weight: 600; border: none; cursor: pointer; font-family: inherit;
-            transition: transform var(--transition-fast), background var(--transition-fast);
+            transition: transform 0.15s, background 0.15s;
         }
         .webdav-actions .btn-test {
             background: var(--bg-btn-webdav); color: var(--text-btn-webdav);
         }
         .webdav-actions .btn-test:hover { background: var(--bg-btn-webdav-hover); transform: translateY(-1px); }
         .webdav-actions .btn-save-webdav {
-            background: var(--bg-btn-primary); color: #fff;
-            box-shadow: var(--shadow-save-btn);
+            background: var(--bg-btn-primary); color: var(--text-btn-primary);
+            box-shadow: var(--shadow-webdav-save);
         }
         .webdav-actions .btn-save-webdav:hover {
             background: var(--bg-btn-primary-hover); transform: translateY(-1px);
@@ -795,17 +836,20 @@
             .btn-theme { font-size: 12px; padding: 4px 8px; }
             .month-label { flex: 0 0 40px; min-width: 40px; font-size: 11px; }
             .month-label .month-name { font-size: 12px; }
-            .day-cell { height: 28px; font-size: 10px; min-width: 18px; border-radius: 4px; }
+            .day-cell { height: 28px; font-size: 10px; border-radius: 4px; }
             .day-cell .day-num { font-size: 11px; }
             .schedule-bar { height: 24px; font-size: 12px; }
-            .schedule-bar-cell { height: 24px; min-width: 18px; }
-            .schedule-bar-placeholder { height: 24px; min-width: 18px; }
+            .schedule-bar-cell { height: 24px; }
+            .schedule-bar-placeholder { height: 24px; }
             .days-row { min-height: 28px; gap: 1.5px; }
             .schedule-bars-row { min-height: 24px; gap: 1.5px; }
-            .weekday-row .weekday-item { font-size: 9px; min-width: 18px; }
-            .weekday-row .weekday-placeholder { flex: 0 0 40px; min-width: 40px; }
+            .weekday-row .weekday-item { font-size: 9px; }
+            .weekday-row .weekday-placeholder { font-size: 10px; }
             .year-nav .year-label { font-size: 17px; min-width: 56px; }
             .modal-box { padding: 18px 16px; }
+            :root.fixed-width {
+                --col-template: repeat(37, 4.5em);
+            }
         }
         @media (max-width: 480px) {
             .app-container { padding: 6px 4px 12px; }
@@ -816,21 +860,24 @@
             .btn-theme { font-size: 10px; padding: 3px 6px; }
             .month-label { flex: 0 0 32px; min-width: 32px; font-size: 9px; }
             .month-label .month-name { font-size: 10px; }
-            .day-cell { height: 24px; font-size: 8px; min-width: 14px; border-radius: 3px; border-width: 1px; }
+            .day-cell { height: 24px; font-size: 8px; border-radius: 3px; border-width: 1px; }
             .day-cell .day-num { font-size: 9px; }
             .day-cell .holiday-badge, .day-cell .adjust-badge { font-size: 4px; line-height: 8px; }
             .schedule-bar { height: 20px; font-size: 10px; border-radius: 3px; padding: 0 3px; }
-            .schedule-bar-cell { height: 20px; min-width: 14px; }
-            .schedule-bar-placeholder { height: 20px; min-width: 14px; }
+            .schedule-bar-cell { height: 20px; }
+            .schedule-bar-placeholder { height: 20px; }
             .schedule-bar .schedule-delete-btn { width: 14px; height: 14px; font-size: 8px; line-height: 10px; top: -4px; right: -4px; }
             .days-row { min-height: 24px; gap: 1px; }
             .schedule-bars-row { min-height: 20px; gap: 1px; }
-            .weekday-row .weekday-item { font-size: 8px; min-width: 14px; }
-            .weekday-row .weekday-placeholder { flex: 0 0 32px; min-width: 32px; }
+            .weekday-row .weekday-item { font-size: 8px; }
+            .weekday-row .weekday-placeholder { font-size: 9px; }
             .year-nav .year-label { font-size: 14px; min-width: 44px; }
             .footer-stats { font-size: 9px; gap: 2px; }
             .modal-box { padding: 14px 12px; }
             .modal-actions button { padding: 6px 14px; font-size: 12px; }
+            :root.fixed-width {
+                --col-template: repeat(37, 4em);
+            }
         }
     </style>
 </head>
@@ -871,7 +918,8 @@
         <!-- ===== 日历 ===== -->
         <div class="calendar-scroll" id="calendarScroll">
             <div class="weekday-row" id="weekdayRow">
-                <div class="weekday-placeholder"></div>
+                <div class="weekday-placeholder">📅</div>
+                <!-- 37个星期标签由JS生成 -->
             </div>
             <div class="calendar-body" id="calendarBody"></div>
         </div>
@@ -974,9 +1022,6 @@
         var contextTaskId = null;
         var isSyncing = false;
 
-        // ============================================================
-        // WebDAV配置
-        // ============================================================
         var webdavConfig = { url: 'https://dav.jianguoyun.com/dav/01日历/日历数据.json', user: '', pass: '' };
         var PROXY_URL = 'https://liner-calendar.vercel.app/api/webdav';
         var syncBadge = document.getElementById('syncBadge');
@@ -989,27 +1034,16 @@
         function applyDisplayMode(mode) {
             var root = document.documentElement;
             var btn = document.getElementById('modeBtn');
-
-            // 移除所有模式类
             root.classList.remove('fixed-width');
-
             if (mode === 'fixed') {
                 root.classList.add('fixed-width');
                 btn.textContent = '📐 固定';
-                btn.title = '固定列宽模式，每列5em';
             } else if (mode === 'adaptive') {
                 btn.textContent = '📐 自适应';
-                btn.title = '自适应模式，等宽填充';
             } else {
-                // auto 模式：根据屏幕宽度自动切换
                 btn.textContent = '📐 自动';
-                btn.title = '自动模式，根据屏幕宽度切换';
-                // 检测屏幕宽度，自动应用
-                var screenWidth = window.innerWidth;
-                if (screenWidth < 768) {
+                if (window.innerWidth < 768) {
                     root.classList.add('fixed-width');
-                } else {
-                    // 不添加 fixed-width 类
                 }
             }
             localStorage.setItem('displayMode', mode);
@@ -1017,15 +1051,12 @@
 
         function toggleDisplayMode() {
             var modes = ['auto', 'adaptive', 'fixed'];
-            var currentIndex = modes.indexOf(displayMode);
-            var nextIndex = (currentIndex + 1) % modes.length;
-            displayMode = modes[nextIndex];
+            var idx = modes.indexOf(displayMode);
+            displayMode = modes[(idx + 1) % modes.length];
             applyDisplayMode(displayMode);
-            // 重新渲染以应用新模式
             render();
         }
 
-        // 监听窗口大小变化（仅对自动模式生效）
         var resizeTimer = null;
         window.addEventListener('resize', function() {
             if (displayMode === 'auto') {
@@ -1116,17 +1147,23 @@
                 var d = localStorage.getItem('annualCalendarTasks');
                 if (d) {
                     tasks = JSON.parse(d).filter(function(t) { return t.id && t.startDate && t.endDate; });
-                    tasks.forEach(function(t) {
-                        if (!t.color) t.color = defaultColor;
-                        if (t.text === undefined) t.text = '';
-                        if (t.updatedAt === undefined) t.updatedAt = new Date().toISOString();
-                        if (t.deleted === undefined) t.deleted = false;
-                    });
+                    normalizeTasks();
                 }
             } catch (e) { tasks = []; }
             document.getElementById('storageStatus').textContent = '本地';
         }
         function saveTasks() { saveTasksToStorage(); }
+
+        function normalizeTasks() {
+            var now = new Date().toISOString();
+            tasks.forEach(function(t) {
+                if (!t.updatedAt) t.updatedAt = now;
+                if (t.deleted === undefined) t.deleted = false;
+                if (t.text === undefined) t.text = '';
+                if (!t.color) t.color = defaultColor;
+                if (!t.createdAt) t.createdAt = now;
+            });
+        }
 
         // ============================================================
         // 节假日
@@ -1307,12 +1344,12 @@
             setSyncStatus('syncing', '同步中...');
             clearTimeout(autoSyncTimer);
             autoSyncTimer = setTimeout(function() {
-                syncMergeWithRetry(3);
+                syncMergeWithRetry(2);
             }, 1500);
         }
 
         // ============================================================
-        // 同步功能
+        // 同步核心
         // ============================================================
 
         function syncWithRetry(syncFn, retries, name) {
@@ -1346,7 +1383,7 @@
             if (isSyncing) return;
             isSyncing = true;
             setSyncStatus('syncing', '合并中...');
-            syncWithRetry(syncMergeCore, retries || 3, '合并同步').then(function() {
+            syncWithRetry(syncMergeCore, retries || 2, '合并同步').then(function() {
                 setSyncStatus('synced', '已同步');
                 showSyncMessage('✅ 数据已合并同步', 'success');
                 isSyncing = false;
@@ -1368,7 +1405,7 @@
             try {
                 var result = await syncWithRetry(function() {
                     return syncToWebDAV();
-                }, 3, '上传');
+                }, 2, '上传');
                 if (result) {
                     setSyncStatus('synced', '已上传');
                     showSyncMessage('✅ 数据已上传到云端', 'success');
@@ -1394,11 +1431,11 @@
             try {
                 var result = await syncWithRetry(function() {
                     return loadFromWebDAV(true);
-                }, 3, '下载');
+                }, 2, '下载');
                 if (result) {
                     setSyncStatus('synced', '已下载');
                     showSyncMessage('✅ 已从云端下载数据', 'success');
-                    // 强制重新渲染
+                    await loadHolidayData(currentYear);
                     render();
                 } else {
                     setSyncStatus('error', '下载失败');
@@ -1417,16 +1454,27 @@
                 return;
             }
             if (isSyncing) { showSyncMessage('⏳ 同步进行中...', ''); return; }
-            syncMergeWithRetry(3);
+            syncMergeWithRetry(2);
         }
 
-        // ===== 合并核心逻辑 =====
         async function syncMergeCore() {
             try {
+                console.log('🔀 [合并] 开始...');
+
                 var cloudData = await fetchCloudData();
                 var cloudTasks = (cloudData && cloudData.tasks) ? cloudData.tasks : [];
+                console.log('☁️ 云端数据:', cloudTasks.length, '项');
+
+                var now = getNowISO();
+                cloudTasks.forEach(function(t) {
+                    if (!t.updatedAt) t.updatedAt = now;
+                    if (t.deleted === undefined) t.deleted = false;
+                    if (t.text === undefined) t.text = '';
+                    if (!t.color) t.color = defaultColor;
+                });
 
                 var localTasks = tasks.filter(function(t) { return t.deleted !== true; });
+                console.log('💻 本地数据:', localTasks.length, '项');
 
                 if (localTasks.length === 0 && cloudTasks.length === 0) {
                     console.log('📭 本地和云端都无数据，跳过同步');
@@ -1434,8 +1482,9 @@
                 }
 
                 if (localTasks.length === 0 && cloudTasks.length > 0) {
-                    console.log('📥 本地为空，从云端下载 ' + cloudTasks.length + ' 项');
-                    tasks = cloudTasks;
+                    console.log('📥 本地为空，下载云端 ' + cloudTasks.length + ' 项');
+                    tasks = cloudTasks.filter(function(t) { return t.deleted !== true; });
+                    normalizeTasks();
                     saveTasksToStorage();
                     render();
                     updateStats();
@@ -1448,15 +1497,20 @@
                 }
 
                 console.log('🔀 合并本地(' + localTasks.length + ') 和云端(' + cloudTasks.length + ')');
-                var merged = mergeTasksByTimestamp(cloudTasks, localTasks);
+                var merged = mergeTasksSafe(cloudTasks, localTasks);
 
-                if (merged.length === 0 && (localTasks.length > 0 || cloudTasks.length > 0)) {
-                    console.error('❌ 合并结果异常为空，中止同步');
-                    showSyncMessage('❌ 合并失败，数据异常', 'error');
-                    return false;
+                if (merged.length === 0) {
+                    console.error('❌ 合并结果为空，保留本地数据');
+                    merged = localTasks.filter(function(t) { return t.deleted !== true; });
+                    if (merged.length === 0 && cloudTasks.length > 0) {
+                        merged = cloudTasks.filter(function(t) { return t.deleted !== true; });
+                    }
                 }
 
+                console.log('📊 合并结果:', merged.length, '项');
+
                 tasks = merged;
+                normalizeTasks();
                 saveTasksToStorage();
                 render();
                 updateStats();
@@ -1470,17 +1524,19 @@
             }
         }
 
-        // ===== 按 updatedAt 合并 =====
-        function mergeTasksByTimestamp(cloudTasks, localTasks) {
+        function mergeTasksSafe(cloudTasks, localTasks) {
             var taskMap = {};
-            var now = new Date().toISOString();
+            var now = getNowISO();
 
             if (localTasks && localTasks.length > 0) {
                 localTasks.forEach(function(t) {
                     if (t && t.id && t.startDate && t.endDate) {
-                        if (!t.updatedAt) t.updatedAt = now;
-                        if (t.deleted === undefined) t.deleted = false;
-                        taskMap[t.id] = JSON.parse(JSON.stringify(t));
+                        var task = JSON.parse(JSON.stringify(t));
+                        if (!task.updatedAt) task.updatedAt = now;
+                        if (task.deleted === undefined) task.deleted = false;
+                        if (task.text === undefined) task.text = '';
+                        if (!task.color) task.color = defaultColor;
+                        taskMap[task.id] = task;
                     }
                 });
             }
@@ -1488,17 +1544,22 @@
             if (cloudTasks && cloudTasks.length > 0) {
                 cloudTasks.forEach(function(t) {
                     if (t && t.id && t.startDate && t.endDate) {
-                        if (!t.updatedAt) t.updatedAt = now;
-                        if (t.deleted === undefined) t.deleted = false;
+                        var task = JSON.parse(JSON.stringify(t));
+                        if (!task.updatedAt) task.updatedAt = now;
+                        if (task.deleted === undefined) task.deleted = false;
+                        if (task.text === undefined) task.text = '';
+                        if (!task.color) task.color = defaultColor;
 
-                        if (!taskMap[t.id]) {
-                            taskMap[t.id] = JSON.parse(JSON.stringify(t));
+                        if (!taskMap[task.id]) {
+                            taskMap[task.id] = task;
                         } else {
-                            var local = taskMap[t.id];
-                            var cloudTime = new Date(t.updatedAt).getTime();
+                            var local = taskMap[task.id];
+                            var cloudTime = new Date(task.updatedAt).getTime();
                             var localTime = new Date(local.updatedAt).getTime();
+                            if (isNaN(cloudTime)) cloudTime = 0;
+                            if (isNaN(localTime)) localTime = 0;
                             if (cloudTime > localTime) {
-                                taskMap[t.id] = JSON.parse(JSON.stringify(t));
+                                taskMap[task.id] = task;
                             }
                         }
                     }
@@ -1514,27 +1575,106 @@
                 }
             }
 
-            // 空数据保护
-            if (result.length === 0 && (localTasks.length > 0 || cloudTasks.length > 0)) {
-                console.warn('⚠️ 合并结果为空，保留本地数据');
-                if (localTasks && localTasks.length > 0) {
-                    localTasks.forEach(function(t) {
-                        if (t && t.id && t.startDate && t.endDate && t.deleted !== true) {
-                            result.push(JSON.parse(JSON.stringify(t)));
-                        }
-                    });
-                }
-                if (result.length === 0 && cloudTasks && cloudTasks.length > 0) {
-                    cloudTasks.forEach(function(t) {
-                        if (t && t.id && t.startDate && t.endDate && t.deleted !== true) {
-                            result.push(JSON.parse(JSON.stringify(t)));
-                        }
-                    });
-                }
+            return result;
+        }
+
+        async function syncToWebDAV() {
+            if (!webdavConfig.user || !webdavConfig.pass) return false;
+
+            var activeTasks = tasks.filter(function(t) { return t.deleted !== true; });
+
+            if (activeTasks.length === 0 && tasks.length > 0) {
+                console.warn('⚠️ 所有任务已删除，不上传空数据');
+                showSyncMessage('⚠️ 没有有效数据可上传', 'error');
+                return false;
             }
 
-            console.log('📊 合并结果:', result.length, '项');
-            return result;
+            var data = {
+                tasks: activeTasks,
+                version: '1.0',
+                updatedAt: new Date().toISOString(),
+                hash: getDataVersion()
+            };
+
+            try {
+                var headers = {
+                    'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass),
+                    'Content-Type': 'application/json'
+                };
+                var response = await webdavProxyRequest('PUT', webdavConfig.url, headers, JSON.stringify(data, null, 2));
+                if (response.ok || response.status === 201) {
+                    console.log('✅ 上传成功，共 ' + activeTasks.length + ' 项');
+                    return true;
+                }
+                if (response.status === 401) {
+                    showSyncMessage('❌ 认证失败', 'error');
+                    return false;
+                }
+                showSyncMessage('❌ 上传失败 (HTTP ' + response.status + ')', 'error');
+                return false;
+            } catch (e) {
+                showSyncMessage('❌ 上传失败：' + e.message, 'error');
+                return false;
+            }
+        }
+
+        async function loadFromWebDAV(forceOverwrite) {
+            if (!webdavConfig.user || !webdavConfig.pass) return false;
+            try {
+                console.log('📥 开始下载... 强制覆盖:', forceOverwrite);
+                var headers = { 'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass) };
+                var response = await webdavProxyRequest('GET', webdavConfig.url, headers, null);
+
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        console.log('📄 云端文件不存在');
+                        return true;
+                    }
+                    if (response.status === 401) {
+                        showSyncMessage('❌ 认证失败', 'error');
+                        return false;
+                    }
+                    throw new Error('HTTP ' + response.status);
+                }
+
+                var data = await response.json();
+                if (data && data.tasks && data.tasks.length > 0) {
+                    console.log('☁️ 云端任务数:', data.tasks.length);
+                    if (forceOverwrite) {
+                        tasks = data.tasks.filter(function(t) { return t.id && t.startDate && t.endDate; });
+                    } else {
+                        tasks = mergeTasksSafe(data.tasks, tasks);
+                    }
+                    normalizeTasks();
+                    saveTasksToStorage();
+                    await loadHolidayData(currentYear);
+                    render();
+                    updateStats();
+                    showSyncMessage('✅ 下载成功，共 ' + tasks.length + ' 项', 'success');
+                    return true;
+                }
+                return true;
+            } catch (e) {
+                console.warn('从WebDAV加载失败:', e);
+                showSyncMessage('❌ 下载失败：' + e.message, 'error');
+                return false;
+            }
+        }
+
+        async function fetchCloudData() {
+            if (!webdavConfig.user || !webdavConfig.pass) return null;
+            try {
+                var headers = { 'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass) };
+                var response = await webdavProxyRequest('GET', webdavConfig.url, headers, null);
+                if (!response.ok) {
+                    if (response.status === 404) return null;
+                    throw new Error('HTTP ' + response.status);
+                }
+                return await response.json();
+            } catch (e) {
+                console.warn('获取云端数据失败:', e);
+                return null;
+            }
         }
 
         // ============================================================
@@ -1622,7 +1762,7 @@
         }
 
         // ============================================================
-        // 渲染
+        // 渲染（grid版）
         // ============================================================
         function render() {
             var body = document.getElementById('calendarBody');
@@ -1630,8 +1770,9 @@
             var today = new Date();
             var todayStr = formatDate(today);
 
+            // 星期行
             var weekdayRow = document.getElementById('weekdayRow');
-            var wHtml = '<div class="weekday-placeholder"></div>';
+            var wHtml = '<div class="weekday-placeholder">📅</div>';
             for (var i = 0; i < MAX_COLS; i++) {
                 var idx = i % 7;
                 wHtml += '<span class="weekday-item' + (idx === 0 || idx === 6 ? ' weekend' : '') + '">' + weekdayNames[idx] + '</span>';
@@ -1656,8 +1797,12 @@
                 html += '<div class="month-label"><span class="month-name">' + (month + 1) + '月</span><span class="month-days">' + daysInMonth + '天</span></div>';
                 html += '<div class="days-schedule-wrapper">';
 
+                // 日期行
                 html += '<div class="days-row">';
-                for (var j = 0; j < firstDayOfWeek; j++) { html += '<div class="day-cell empty"></div>'; }
+                // 空白格（firstDayOfWeek个）
+                for (var j = 0; j < firstDayOfWeek; j++) {
+                    html += '<div class="day-cell empty"></div>';
+                }
                 for (var day = 1; day <= daysInMonth; day++) {
                     var dateObj = new Date(year, month, day);
                     var dateStr = formatDate(dateObj);
@@ -1685,11 +1830,16 @@
                     html += '<div class="' + cls + '" data-date="' + dateStr + '" onclick="openModalForDate(\'' + dateStr + '\')" title="' + dateStr + (hName ? ' · ' + hName : '') + '">';
                     html += '<span class="day-num">' + day + '</span>' + badge + '</div>';
                 }
-                var totalCells = firstDayOfWeek + daysInMonth;
-                for (var k = totalCells; k < MAX_COLS; k++) { html += '<div class="day-cell empty"></div>'; }
+                // 补全到37列（空白格）
+                var totalCols = firstDayOfWeek + daysInMonth;
+                for (var k = totalCols; k < MAX_COLS; k++) {
+                    html += '<div class="day-cell empty"></div>';
+                }
                 html += '</div>';
 
+                // 色块行
                 html += renderScheduleBars(month, year, daysInMonth, firstDayOfWeek, monthTasks);
+
                 html += '</div></div></div>';
             }
 
@@ -1699,10 +1849,15 @@
             initDragSelection();
         }
 
+        // ============================================================
+        // 渲染色块（grid合并单元格）
+        // ============================================================
         function renderScheduleBars(month, year, daysInMonth, firstDayOfWeek, monthTasks) {
             if (monthTasks.length === 0) {
                 var html = '<div class="schedule-bars-row">';
-                for (var i = 0; i < MAX_COLS; i++) { html += '<div class="schedule-bar-placeholder"></div>'; }
+                for (var i = 0; i < MAX_COLS; i++) {
+                    html += '<div class="schedule-bar-placeholder"></div>';
+                }
                 return html + '</div>';
             }
 
@@ -1729,10 +1884,13 @@
 
             if (taskRanges.length === 0) {
                 var html = '<div class="schedule-bars-row">';
-                for (var i = 0; i < MAX_COLS; i++) { html += '<div class="schedule-bar-placeholder"></div>'; }
+                for (var i = 0; i < MAX_COLS; i++) {
+                    html += '<div class="schedule-bar-placeholder"></div>';
+                }
                 return html + '</div>';
             }
 
+            // 行分组
             var rows = [];
             var maxRows = 10;
             for (var r = 0; r < taskRanges.length; r++) {
@@ -1743,9 +1901,15 @@
                     var overlaps = rows[rowIdx].some(function(existing) {
                         return !(range.endCol < existing.startCol || range.startCol > existing.endCol);
                     });
-                    if (!overlaps) { rows[rowIdx].push(range); placed = true; break; }
+                    if (!overlaps) {
+                        rows[rowIdx].push(range);
+                        placed = true;
+                        break;
+                    }
                 }
-                if (!placed && rows.length < maxRows) { rows[rows.length] = [range]; }
+                if (!placed && rows.length < maxRows) {
+                    rows[rows.length] = [range];
+                }
             }
 
             var html = '';
@@ -1754,13 +1918,17 @@
             for (var rowIdx = 0; rowIdx < visibleRows.length; rowIdx++) {
                 var row = visibleRows[rowIdx];
                 html += '<div class="schedule-bars-row">';
+
+                // 使用grid，每个色块占用对应列
                 var occupied = new Array(MAX_COLS).fill(null);
                 for (var b = 0; b < row.length; b++) {
                     var bar = row[b];
-                    for (var col = bar.startCol; col <= bar.endCol && col < MAX_COLS; col++) { occupied[col] = bar; }
+                    for (var col = bar.startCol; col <= bar.endCol && col < MAX_COLS; col++) {
+                        occupied[col] = bar;
+                    }
                 }
-                var col = 0;
-                while (col < MAX_COLS) {
+
+                for (var col = 0; col < MAX_COLS; col++) {
                     var bar = occupied[col];
                     if (bar && col === bar.startCol) {
                         var colorKey = bar.color || defaultColor;
@@ -1768,21 +1936,17 @@
                         var isEmpty = !bar.text || bar.text.trim() === '';
                         var emptyClass = isEmpty ? 'empty-name' : '';
                         var span = Math.min(bar.endCol - bar.startCol + 1, MAX_COLS - bar.startCol);
-                        // 固定列宽模式下，使用 flex: 0 0 span*5em
-                        var flexVal = document.documentElement.classList.contains('fixed-width') ?
-                            ('0 0 ' + (span * 5) + 'em') :
-                            (span + ' 1 0');
-                        var minW = document.documentElement.classList.contains('fixed-width') ?
-                            (span * 5) + 'em' :
-                            (span * 28) + 'px';
-                        html += '<div class="schedule-bar-cell" style="flex: ' + flexVal + '; min-width: ' + minW + ';">';
+
+                        html += '<div class="schedule-bar-cell" style="grid-column: span ' + span + ';">';
                         html += '<div class="schedule-bar color-' + colorKey + ' ' + emptyClass + '" onclick="event.stopPropagation(); editTask(\'' + bar.task.id + '\')" oncontextmenu="showContextMenu(event, \'' + bar.task.id + '\')" title="' + (bar.text || '点击编辑') + '">';
                         html += displayText;
                         html += '<span class="schedule-delete-btn" onclick="event.stopPropagation(); deleteTaskDirect(\'' + bar.task.id + '\', event)">×</span>';
                         html += '</div></div>';
-                        col += span;
-                    } else if (!bar) { html += '<div class="schedule-bar-cell"></div>'; col++; }
-                    else { col++; }
+                        // 跳过已占用的列
+                        col = bar.endCol;
+                    } else if (!bar) {
+                        html += '<div class="schedule-bar-cell"></div>';
+                    }
                 }
                 html += '</div>';
             }
@@ -1993,7 +2157,6 @@
         }
         function closeWebDAVModal() { document.getElementById('webdavModal').classList.remove('active'); }
 
-        // ===== Vercel 代理 =====
         async function webdavProxyRequest(method, url, headers, body) {
             var requestBody = { method: method, url: url, headers: { 'Authorization': headers['Authorization'] || '', 'Content-Type': headers['Content-Type'] || 'application/json' } };
             if (body) requestBody.body = body;
@@ -2023,7 +2186,6 @@
             } catch (error) { console.error('代理请求失败:', error); throw error; }
         }
 
-        // ===== 测试连接 =====
         async function testWebDAV() {
             var url = document.getElementById('webdavUrl').value.trim();
             var user = document.getElementById('webdavUser').value.trim();
@@ -2081,99 +2243,6 @@
             }
         }
 
-        // ===== 同步到WebDAV =====
-        async function syncToWebDAV() {
-            if (!webdavConfig.user || !webdavConfig.pass) return false;
-            var activeTasks = tasks.filter(function(t) { return t.deleted !== true; });
-            var data = {
-                tasks: activeTasks,
-                version: '1.0',
-                updatedAt: new Date().toISOString(),
-                hash: getDataVersion()
-            };
-            try {
-                var headers = {
-                    'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass),
-                    'Content-Type': 'application/json'
-                };
-                var response = await webdavProxyRequest('PUT', webdavConfig.url, headers, JSON.stringify(data, null, 2));
-                if (response.ok || response.status === 201) {
-                    return true;
-                }
-                if (response.status === 401) { showSyncMessage('❌ 认证失败', 'error'); return false; }
-                showSyncMessage('❌ 上传失败 (HTTP ' + response.status + ')', 'error');
-                return false;
-            } catch (e) {
-                showSyncMessage('❌ 上传失败：' + e.message, 'error');
-                return false;
-            }
-        }
-
-        // ===== 从WebDAV加载 =====
-        async function loadFromWebDAV(forceOverwrite) {
-            if (!webdavConfig.user || !webdavConfig.pass) return false;
-            try {
-                console.log('📥 开始下载... 强制覆盖模式:', forceOverwrite);
-                var headers = { 'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass) };
-                var response = await webdavProxyRequest('GET', webdavConfig.url, headers, null);
-
-                if (!response.ok) {
-                    if (response.status === 404) {
-                        console.log('📄 云端文件不存在');
-                        return true;
-                    }
-                    if (response.status === 401) {
-                        showSyncMessage('❌ 认证失败', 'error');
-                        return false;
-                    }
-                    throw new Error('HTTP ' + response.status);
-                }
-
-                var data = await response.json();
-                if (data && data.tasks && data.tasks.length > 0) {
-                    console.log('☁️ 云端任务数:', data.tasks.length);
-                    if (forceOverwrite) {
-                        tasks = data.tasks.filter(function(t) { return t.id && t.startDate && t.endDate; });
-                        tasks.forEach(function(t) {
-                            if (!t.color) t.color = defaultColor;
-                            if (t.text === undefined) t.text = '';
-                            if (t.updatedAt === undefined) t.updatedAt = new Date().toISOString();
-                            if (t.deleted === undefined) t.deleted = false;
-                        });
-                    } else {
-                        tasks = mergeTasksByTimestamp(data.tasks, tasks);
-                    }
-                    saveTasksToStorage();
-                    // 强制重新加载节假日数据后渲染
-                    await loadHolidayData(currentYear);
-                    render();
-                    updateStats();
-                    showSyncMessage('✅ 下载成功，共 ' + tasks.length + ' 项', 'success');
-                    return true;
-                }
-                return true;
-            } catch (e) {
-                console.warn('从WebDAV加载失败:', e);
-                showSyncMessage('❌ 下载失败：' + e.message, 'error');
-                return false;
-            }
-        }
-
-        // ===== 获取云端数据 =====
-        async function fetchCloudData() {
-            if (!webdavConfig.user || !webdavConfig.pass) return null;
-            try {
-                var headers = { 'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass) };
-                var response = await webdavProxyRequest('GET', webdavConfig.url, headers, null);
-                if (!response.ok) {
-                    if (response.status === 404) return null;
-                    throw new Error('HTTP ' + response.status);
-                }
-                return await response.json();
-            } catch (e) { console.warn('获取云端数据失败:', e); return null; }
-        }
-
-        // ===== 保存WebDAV配置 =====
         async function saveWebDAVConfig() {
             var url = document.getElementById('webdavUrl').value.trim();
             var user = document.getElementById('webdavUser').value.trim();
@@ -2288,7 +2357,6 @@
                 showSyncMessage('ℹ️ 使用本地存储，点击 ⚙️ 配置同步', '');
             }
 
-            // 应用显示模式
             applyDisplayMode(displayMode);
             render();
 
