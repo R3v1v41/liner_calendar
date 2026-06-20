@@ -1,10 +1,10 @@
 const CACHE_NAME = 'calendar-cache-v1';
 const urlsToCache = [
-    'index.html',
-    'manifest.json'
+    './',
+    './index.html',
+    './manifest.json'
 ];
 
-// 安装时缓存
 self.addEventListener('install', function(event) {
     event.waitUntil(
         caches.open(CACHE_NAME)
@@ -14,7 +14,6 @@ self.addEventListener('install', function(event) {
     );
 });
 
-// 激活时清理旧缓存
 self.addEventListener('activate', function(event) {
     event.waitUntil(
         caches.keys().then(function(cacheNames) {
@@ -29,7 +28,6 @@ self.addEventListener('activate', function(event) {
     );
 });
 
-// 拦截请求，优先使用缓存
 self.addEventListener('fetch', function(event) {
     event.respondWith(
         caches.match(event.request)
