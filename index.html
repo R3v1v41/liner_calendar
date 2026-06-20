@@ -1379,7 +1379,7 @@
         // ============================================================
         // 三、Vercel 代理地址（部署后修改）
         // ============================================================
-        var PROXY_URL = '/api/webdav';  // 相对路径，Vercel 自动适配
+        var PROXY_URL = 'https://liner-calendar.vercel.app/api/webdav';  // 相对路径，Vercel 自动适配
 
         // ============================================================
         // 四、主题切换
@@ -2254,6 +2254,7 @@
             document.getElementById('webdavModal').classList.remove('active');
         }
 
+        /*
         // ===== Vercel 代理请求函数 =====
         async function webdavProxyRequest(method, url, headers, body) {
             var proxyUrl = PROXY_URL;
@@ -2303,7 +2304,80 @@
                 throw error;
             }
         }
+        
+        */
 
+        // ===== Vercel 代理请求函数（修复版） =====
+        async function webdavProxyRequest(method, url, headers, body) {
+            var proxyUrl = PROXY_URL;
+
+            // 构建请求头 - 确保 x-target-url 正确传递
+            var requestHeaders = {
+                'x-target-url': url,
+                'authorization': headers['Authorization'] || '',
+                'content-type': headers['Content-Type'] || 'application/json',
+                'depth': headers['Depth'] || '0'
+            };
+
+            var fetchOptions = {
+                method: 'POST',
+                headers: requestHeaders
+            };
+
+            if (body) {
+                fetchOptions.body = body;
+            }
+
+            try {
+                console.log('🔄 代理请求:', method, url);
+                console.log('📤 请求头:', requestHeaders);
+
+                var controller = new AbortController();
+                var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
+                fetchOptions.signal = controller.signal;
+
+                var response = await fetch(proxyUrl, fetchOptions);
+                clearTimeout(timeoutId);
+
+                console.log('📡 代理响应状态:', response.status);
+
+                // 检查响应是否为 JSON
+                var contentType = response.headers.get('content-type') || '';
+                var result;
+
+                if (contentType.includes('application/json')) {
+                    result = await response.json();
+                } else {
+                    var text = await response.text();
+                    console.warn('⚠️ 非JSON响应:', text);
+                    // 尝试解析为JSON
+                    try {
+                        result = JSON.parse(text);
+                    } catch (e) {
+                        result = { error: 'Invalid JSON response', raw: text };
+                    }
+                }
+
+                if (!response.ok) {
+                    throw new Error('Proxy error ' + response.status + ': ' + JSON.stringify(result));
+                }
+
+                return {
+                    ok: result.status >= 200 && result.status < 300,
+                    status: result.status,
+                    statusText: result.statusText,
+                    headers: new Headers(result.headers || {}),
+                    json: async function() { return result.data || result; },
+                    text: async function() {
+                        if (typeof result === 'string') return result;
+                        return JSON.stringify(result);
+                    }
+                };
+            } catch (error) {
+                console.error('❌ 代理请求失败:', error);
+                throw error;
+            }
+        }
         // ===== 测试 WebDAV 连接 =====
         async function testWebDAV() {
             var url = document.getElementById('webdavUrl').value.trim();
