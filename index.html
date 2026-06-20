@@ -1089,23 +1089,23 @@
         // ============================================================
         // 一、数据层
         // ============================================================
-        let tasks = [];
-        let currentYear = new Date().getFullYear();
-        let editingTaskId = null;
-        let holidayData = {};
-        let adjustWorkdayData = {};
-        let isLoadingHoliday = false;
-        let fileHandle = null;
-        const defaultColor = 'pink';
-        const weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
-        const MAX_COLS = 37;
+        var tasks = [];
+        var currentYear = new Date().getFullYear();
+        var editingTaskId = null;
+        var holidayData = {};
+        var adjustWorkdayData = {};
+        var isLoadingHoliday = false;
+        var fileHandle = null;
+        var defaultColor = 'pink';
+        var weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
+        var MAX_COLS = 37;
 
-        let contextTaskId = null;
+        var contextTaskId = null;
 
         // ============================================================
         // 二、WebDAV配置
         // ============================================================
-        let webdavConfig = {
+        var webdavConfig = {
             url: 'https://dav.jianguoyun.com/dav/日历数据.json',
             user: '',
             pass: ''
@@ -1124,10 +1124,10 @@
         }
 
         function getDataVersion() {
-            const dataStr = JSON.stringify(tasks);
-            let hash = 0;
-            for (let i = 0; i < dataStr.length; i++) {
-                const char = dataStr.charCodeAt(i);
+            var dataStr = JSON.stringify(tasks);
+            var hash = 0;
+            for (var i = 0; i < dataStr.length; i++) {
+                var char = dataStr.charCodeAt(i);
                 hash = ((hash << 5) - hash) + char;
                 hash = hash & hash;
             }
@@ -1135,10 +1135,10 @@
         }
 
         function getTasksHash(tasksData) {
-            const dataStr = JSON.stringify(tasksData);
-            let hash = 0;
-            for (let i = 0; i < dataStr.length; i++) {
-                const char = dataStr.charCodeAt(i);
+            var dataStr = JSON.stringify(tasksData);
+            var hash = 0;
+            for (var i = 0; i < dataStr.length; i++) {
+                var char = dataStr.charCodeAt(i);
                 hash = ((hash << 5) - hash) + char;
                 hash = hash & hash;
             }
@@ -1157,10 +1157,10 @@
 
         function loadTasksFromStorage() {
             try {
-                const d = localStorage.getItem('annualCalendarTasks');
+                var d = localStorage.getItem('annualCalendarTasks');
                 if (d) {
-                    tasks = JSON.parse(d).filter(t => t.id && t.startDate && t.endDate);
-                    tasks.forEach(t => {
+                    tasks = JSON.parse(d).filter(function(t) { return t.id && t.startDate && t.endDate; });
+                    tasks.forEach(function(t) {
                         if (!t.color) t.color = defaultColor;
                         if (t.text === undefined) t.text = '';
                     });
@@ -1268,8 +1268,8 @@
 
         async function fetchHolidayData(year) {
             try {
-                const url = 'https://cdn.jsdelivr.net/npm/when-off/json/CN/' + year + '.json';
-                const res = await fetch(url);
+                var url = 'https://cdn.jsdelivr.net/npm/when-off/json/CN/' + year + '.json';
+                var res = await fetch(url);
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 return await res.json();
             } catch (e) {
@@ -1281,7 +1281,7 @@
             if (isLoadingHoliday) return;
             isLoadingHoliday = true;
             try {
-                const data = await fetchHolidayData(year);
+                var data = await fetchHolidayData(year);
                 if (data && data.holidays && Array.isArray(data.holidays)) {
                     var h = {};
                     data.holidays.forEach(function(item) { if (item.date) h[item.date] = item.name || '节假日'; });
@@ -1891,7 +1891,7 @@
         }
 
         // ============================================================
-        // 十四、WebDAV
+        // 十四、WebDAV（修复版）
         // ============================================================
         function loadWebDAVConfig() {
             try {
@@ -1956,6 +1956,7 @@
             document.getElementById('webdavModal').classList.remove('active');
         }
 
+        // 测试WebDAV连接（修复版）
         async function testWebDAV() {
             var url = document.getElementById('webdavUrl').value.trim();
             var user = document.getElementById('webdavUser').value.trim();
@@ -1968,27 +1969,172 @@
                 return;
             }
 
+            // 检查协议
+            if (!url.startsWith('https://')) {
+                resultEl.className = 'test-result error';
+                resultEl.textContent = '⚠️ 服务器地址必须以 https:// 开头';
+                return;
+            }
+
             resultEl.className = 'test-result';
             resultEl.textContent = '⏳ 测试连接中...';
 
             try {
+                var controller = new AbortController();
+                var timeoutId = setTimeout(function() { controller.abort(); }, 15000);
+
                 var response = await fetch(url, {
-                    method: 'HEAD',
+                    method: 'PROPFIND',
                     headers: {
-                        'Authorization': 'Basic ' + btoa(user + ':' + pass)
-                    }
+                        'Authorization': 'Basic ' + btoa(user + ':' + pass),
+                        'Depth': '0'
+                    },
+                    signal: controller.signal,
+                    mode: 'cors'
                 });
 
-                if (response.ok || response.status === 404) {
+                clearTimeout(timeoutId);
+
+                if (response.status === 207 || response.status === 200) {
                     resultEl.className = 'test-result success';
-                    resultEl.textContent = '✅ 连接成功！' + (response.status === 404 ? ' 文件不存在，将自动创建。' : ' 文件可访问。');
+                    resultEl.textContent = '✅ 连接成功！坚果云可访问。';
+                } else if (response.status === 404) {
+                    resultEl.className = 'test-result success';
+                    resultEl.textContent = '✅ 连接成功！文件不存在，保存时将自动创建。';
+                } else if (response.status === 401) {
+                    resultEl.className = 'test-result error';
+                    resultEl.textContent = '❌ 认证失败！请检查用户名和应用密码是否正确。';
                 } else {
                     resultEl.className = 'test-result error';
-                    resultEl.textContent = '❌ 连接失败 (HTTP ' + response.status + ')，请检查账号和应用密码';
+                    resultEl.textContent = '❌ 连接失败 (HTTP ' + response.status + ')，请检查服务器地址。';
                 }
             } catch (e) {
+                console.error('测试连接错误:', e);
+                var errorMsg = '❌ 连接失败：';
+                if (e.name === 'AbortError') {
+                    errorMsg += '请求超时，请检查网络连接。';
+                } else if (e.message && e.message.includes('Failed to fetch')) {
+                    errorMsg += '跨域请求被阻止。请通过 GitHub Pages 或本地服务器访问，不要直接双击 HTML 文件。';
+                } else {
+                    errorMsg += e.message || '未知错误';
+                }
                 resultEl.className = 'test-result error';
-                resultEl.textContent = '❌ 连接失败：' + e.message;
+                resultEl.textContent = errorMsg;
+            }
+        }
+
+        // 同步数据到WebDAV（修复版）
+        async function syncToWebDAV() {
+            if (!webdavConfig.user || !webdavConfig.pass) {
+                showSyncStatus('error', '⚠️', '请先配置WebDAV');
+                return false;
+            }
+
+            var data = {
+                tasks: tasks,
+                version: '1.0',
+                updatedAt: new Date().toISOString(),
+                hash: getDataVersion()
+            };
+
+            try {
+                var controller = new AbortController();
+                var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
+
+                var response = await fetch(webdavConfig.url, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data, null, 2),
+                    signal: controller.signal,
+                    mode: 'cors'
+                });
+
+                clearTimeout(timeoutId);
+
+                if (response.ok || response.status === 201) {
+                    showSyncStatus('success', '✅', '数据已同步到坚果云');
+                    updateWebDAVStatus(true);
+                    return true;
+                } else if (response.status === 401) {
+                    showSyncStatus('error', '❌', '认证失败，请检查用户名和应用密码');
+                    updateWebDAVStatus(false);
+                    return false;
+                } else {
+                    var text = await response.text();
+                    console.error('同步失败:', text);
+                    showSyncStatus('error', '❌', '同步失败 (HTTP ' + response.status + ')');
+                    updateWebDAVStatus(false);
+                    return false;
+                }
+            } catch (e) {
+                console.error('同步错误:', e);
+                var msg = '同步失败：';
+                if (e.name === 'AbortError') {
+                    msg += '请求超时，请检查网络';
+                } else if (e.message && e.message.includes('Failed to fetch')) {
+                    msg += '请通过 GitHub Pages 或本地服务器访问';
+                } else {
+                    msg += e.message || '未知错误';
+                }
+                showSyncStatus('error', '❌', msg);
+                updateWebDAVStatus(false);
+                return false;
+            }
+        }
+
+        // 从WebDAV加载数据（修复版）
+        async function loadFromWebDAV() {
+            if (!webdavConfig.user || !webdavConfig.pass) {
+                return false;
+            }
+
+            try {
+                var controller = new AbortController();
+                var timeoutId = setTimeout(function() { controller.abort(); }, 15000);
+
+                var response = await fetch(webdavConfig.url, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass)
+                    },
+                    signal: controller.signal,
+                    mode: 'cors'
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        console.log('📄 文件不存在，将创建新文件');
+                        return true;
+                    }
+                    if (response.status === 401) {
+                        console.warn('认证失败');
+                        return false;
+                    }
+                    throw new Error('HTTP ' + response.status);
+                }
+
+                var data = await response.json();
+                if (data && data.tasks) {
+                    tasks = data.tasks.filter(function(t) { return t.id && t.startDate && t.endDate; });
+                    tasks.forEach(function(t) {
+                        if (!t.color) t.color = defaultColor;
+                        if (t.text === undefined) t.text = '';
+                    });
+                    saveTasksToStorage();
+                    render();
+                    showSyncStatus('success', '✅', '从坚果云加载了 ' + tasks.length + ' 项事项');
+                    updateWebDAVStatus(true);
+                    return true;
+                }
+                return false;
+            } catch (e) {
+                console.warn('从WebDAV加载失败:', e);
+                return false;
             }
         }
 
@@ -2010,94 +2156,14 @@
             showSyncStatus('success', '✅', '数据已同步到坚果云');
         }
 
-        async function syncToWebDAV() {
-            if (!webdavConfig.user || !webdavConfig.pass) {
-                showSyncStatus('error', '⚠️', '请先配置WebDAV');
-                return false;
-            }
-
-            var data = {
-                tasks: tasks,
-                version: '1.0',
-                updatedAt: new Date().toISOString(),
-                hash: getDataVersion()
-            };
-
-            try {
-                var response = await fetch(webdavConfig.url, {
-                    method: 'PUT',
-                    headers: {
-                        'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass),
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data, null, 2)
-                });
-
-                if (response.ok) {
-                    showSyncStatus('success', '✅', '数据已同步到坚果云');
-                    updateWebDAVStatus(true);
-                    return true;
-                } else {
-                    throw new Error('HTTP ' + response.status);
-                }
-            } catch (e) {
-                showSyncStatus('error', '❌', '同步失败：' + e.message);
-                updateWebDAVStatus(false);
-                return false;
-            }
-        }
-
-        async function loadFromWebDAV() {
-            if (!webdavConfig.user || !webdavConfig.pass) {
-                return false;
-            }
-
-            try {
-                var response = await fetch(webdavConfig.url, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass)
-                    }
-                });
-
-                if (!response.ok) {
-                    if (response.status === 404) {
-                        await syncToWebDAV();
-                        return true;
-                    }
-                    throw new Error('HTTP ' + response.status);
-                }
-
-                var data = await response.json();
-                if (data && data.tasks) {
-                    tasks = data.tasks.filter(function(t) { return t.id && t.startDate && t.endDate; });
-                    tasks.forEach(function(t) {
-                        if (!t.color) t.color = defaultColor;
-                        if (t.text === undefined) t.text = '';
-                    });
-                    saveTasksToStorage();
-                    render();
-                    showSyncStatus('success', '✅', '从坚果云加载了 ' + tasks.length + ' 项事项');
-                    updateWebDAVStatus(true);
-                    return true;
-                }
-                return false;
-            } catch (e) {
-                console.warn('从WebDAV加载失败', e);
-                return false;
-            }
-        }
-
         // ============================================================
         // 十五、File System Access API（简化版）
         // ============================================================
         async function loadDataFromFile() {
-            // 简化版，直接返回false使用localStorage
             return false;
         }
 
         async function saveDataToFile(handle) {
-            // 简化版
             return false;
         }
 
@@ -2136,14 +2202,13 @@
         }
 
         // ============================================================
-        // 十七、Service Worker（已移除，避免兼容性问题）
+        // 十七、Service Worker（已移除）
         // ============================================================
         // 已移除 Service Worker 注册，所有浏览器均可正常打开
 
         // ============================================================
         // 十八、初始化
         // ============================================================
-        // 事件绑定
         document.getElementById('colorOptions').addEventListener('click', function(e) {
             var dot = e.target.closest('.color-dot');
             if (!dot) return;
