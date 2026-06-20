@@ -50,6 +50,7 @@
             --bg-webdav-status: #f0f3f8;
             --bg-test-success: #e8f5e9;
             --bg-test-error: #ffebee;
+            --bg-sync-progress: #e3f0ff;
 
             --text-primary: #0b1a33;
             --text-secondary: #1a253a;
@@ -80,6 +81,7 @@
             --text-webdav-status: #5a6a7a;
             --text-test-success: #1b5e20;
             --text-test-error: #b71c1c;
+            --text-sync-progress: #1a5fb0;
 
             --border-color: #edf2f9;
             --border-light: #e8edf5;
@@ -98,6 +100,7 @@
             --border-test-error: #ef9a9a;
             --border-context: #edf2f9;
             --border-install: #2a5cff;
+            --border-sync-progress: #2a5cff;
 
             --shadow-modal: 0 30px 60px rgba(0, 0, 0, 0.15);
             --shadow-context: 0 8px 32px rgba(0, 0, 0, 0.18);
@@ -162,6 +165,7 @@
             --bg-webdav-status: #1a2a4a;
             --bg-test-success: #1a3a2a;
             --bg-test-error: #3a1a1a;
+            --bg-sync-progress: #1a2a4a;
 
             --text-primary: #e8e8f0;
             --text-secondary: #c8c8d8;
@@ -192,6 +196,7 @@
             --text-webdav-status: #9aaabc;
             --text-test-success: #7acc8a;
             --text-test-error: #ff6b6b;
+            --text-sync-progress: #6a9aff;
 
             --border-color: #2a3a5a;
             --border-light: #1a2a4a;
@@ -210,6 +215,7 @@
             --border-test-error: #5a2a2a;
             --border-context: #2a3a5a;
             --border-install: #3a7aff;
+            --border-sync-progress: #3a7aff;
 
             --shadow-modal: 0 30px 60px rgba(0, 0, 0, 0.5);
             --shadow-context: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -362,6 +368,38 @@
         .header-actions .btn-webdav.synced {
             background: var(--bg-btn-synced);
             color: var(--text-btn-synced);
+        }
+
+        /* ===== 同步状态标签 ===== */
+        .sync-status-badge {
+            font-size: 12px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            background: var(--bg-btn-cancel);
+            color: var(--text-muted);
+            transition: all var(--transition-fast);
+            white-space: nowrap;
+            border: 1px solid var(--border-color);
+        }
+        .sync-status-badge.synced {
+            background: var(--bg-sync-success);
+            color: var(--text-sync-success);
+            border-color: var(--border-sync-success);
+        }
+        .sync-status-badge.syncing {
+            background: var(--bg-sync-progress);
+            color: var(--text-sync-progress);
+            border-color: var(--border-sync-progress);
+            animation: pulse-sync 1s infinite;
+        }
+        .sync-status-badge.error {
+            background: var(--bg-sync-error);
+            color: var(--text-sync-error);
+            border-color: var(--border-sync-error);
+        }
+        @keyframes pulse-sync {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         /* ===== 主题切换按钮 ===== */
@@ -1186,6 +1224,7 @@
             .footer-stats { font-size: 11px; gap: 4px; }
             .modal-box { padding: 20px 18px; }
             .modal-actions button { padding: 8px 16px; font-size: 13px; }
+            .sync-status-badge { font-size: 10px; padding: 3px 10px; }
         }
         @media (max-width: 480px) {
             .app-container { padding: 8px 4px 12px; }
@@ -1215,6 +1254,7 @@
             .modal-actions button { padding: 8px 14px; font-size: 12px; flex: 1; min-width: 60px; }
             #deleteBtnContainer { flex: 1; min-width: 60px; }
             #deleteBtnContainer .btn-delete { width: 100%; }
+            .sync-status-badge { font-size: 9px; padding: 2px 8px; }
         }
     </style>
 </head>
@@ -1224,11 +1264,12 @@
         <div class="header">
             <h1>📅 年度<span>线性</span>日历</h1>
             <div class="header-actions">
+                <span class="sync-status-badge" id="syncBadge">☁️ 未同步</span>
                 <button class="btn-theme" onclick="toggleTheme()" id="themeBtn" title="切换夜间模式">🌙</button>
                 <button class="btn-today" onclick="goToToday()">● 今天</button>
-                <button class="btn-primary" onclick="openModal()">＋ 新建事项</button>
+                <button class="btn-primary" onclick="openModal()">＋ 新建</button>
                 <button class="btn-update-holiday" onclick="updateHolidayData()">🔄 节假日</button>
-                <button class="btn-webdav" onclick="openWebDAVModal()" id="webdavBtn">☁️ 云同步</button>
+                <button class="btn-webdav" onclick="openWebDAVModal()" id="webdavBtn">⚙️ 设置</button>
             </div>
         </div>
 
@@ -1325,11 +1366,11 @@
     <!-- ===== WebDAV设置弹窗 ===== -->
     <div class="modal-overlay webdav-modal" id="webdavModal">
         <div class="modal-box">
-            <h3>☁️ 坚果云 WebDAV 同步</h3>
-            <p class="modal-sub">配置坚果云WebDAV，实现多设备数据同步</p>
+            <h3>⚙️ WebDAV 同步设置</h3>
+            <p class="modal-sub">配置坚果云WebDAV，多设备数据同步</p>
             <div class="form-group">
                 <label>服务器地址</label>
-                <input type="url" id="webdavUrl" value="https://dav.jianguoyun.com/dav/日历数据.json">
+                <input type="url" id="webdavUrl" value="https://dav.jianguoyun.com/dav/01日历/日历数据.json">
                 <div class="hint">默认使用坚果云WebDAV地址</div>
             </div>
             <div class="form-group">
@@ -1344,7 +1385,7 @@
             <div class="test-result" id="webdavTestResult"></div>
             <div class="webdav-actions">
                 <button class="btn-test" onclick="testWebDAV()">🔗 测试连接</button>
-                <button class="btn-save-webdav" onclick="saveWebDAVConfig()">💾 保存并同步</button>
+                <button class="btn-save-webdav" onclick="saveWebDAVConfig()">💾 保存设置</button>
                 <button class="btn-close-webdav" onclick="closeWebDAVModal()">取消</button>
             </div>
         </div>
@@ -1371,7 +1412,7 @@
         // 二、WebDAV配置
         // ============================================================
         var webdavConfig = {
-            url: 'https://dav.jianguoyun.com/dav/日历数据.json',
+            url: 'https://dav.jianguoyun.com/dav/01日历/日历数据.json',
             user: '',
             pass: ''
         };
@@ -1379,10 +1420,31 @@
         // ============================================================
         // 三、Vercel 代理地址（部署后修改）
         // ============================================================
-        var PROXY_URL = 'https://liner-calendar.vercel.app/api/webdav';  // 相对路径，Vercel 自动适配
+        var PROXY_URL = 'https://liner-calendar.vercel.app/api/webdav';
 
         // ============================================================
-        // 四、主题切换
+        // 四、同步状态
+        // ============================================================
+        var syncBadge = document.getElementById('syncBadge');
+
+        function setSyncStatus(status, message) {
+            syncBadge.className = 'sync-status-badge';
+            if (status === 'synced') {
+                syncBadge.classList.add('synced');
+                syncBadge.textContent = '☁️ ' + (message || '已同步');
+            } else if (status === 'syncing') {
+                syncBadge.classList.add('syncing');
+                syncBadge.textContent = '⏳ ' + (message || '同步中...');
+            } else if (status === 'error') {
+                syncBadge.classList.add('error');
+                syncBadge.textContent = '❌ ' + (message || '同步失败');
+            } else {
+                syncBadge.textContent = '☁️ ' + (message || '未同步');
+            }
+        }
+
+        // ============================================================
+        // 五、主题切换
         // ============================================================
         function getPreferredTheme() {
             var saved = localStorage.getItem('theme');
@@ -1413,7 +1475,7 @@
         }
 
         // ============================================================
-        // 五、工具函数
+        // 六、工具函数
         // ============================================================
         function formatDate(date) {
             return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate())
@@ -1447,7 +1509,7 @@
         }
 
         // ============================================================
-        // 六、存储（localStorage）
+        // 七、存储（localStorage）
         // ============================================================
         function saveTasksToStorage() {
             try {
@@ -1478,7 +1540,7 @@
         }
 
         // ============================================================
-        // 七、节假日数据
+        // 八、节假日数据
         // ============================================================
         function getBuiltinHolidayData(year) {
             if (year === 2026) {
@@ -1623,7 +1685,7 @@
         }
 
         // ============================================================
-        // 八、任务CRUD
+        // 九、任务CRUD（自动同步）
         // ============================================================
         function addTask(text, startDate, endDate, color) {
             tasks.push({
@@ -1635,6 +1697,8 @@
             });
             saveTasks();
             render();
+            // 自动同步到坚果云
+            autoSyncToCloud();
         }
 
         function updateTask(id, text, startDate, endDate, color) {
@@ -1646,6 +1710,8 @@
                 t.color = color || defaultColor;
                 saveTasks();
                 render();
+                // 自动同步到坚果云
+                autoSyncToCloud();
             }
         }
 
@@ -1654,6 +1720,8 @@
             tasks = tasks.filter(function(t) { return t.id !== id; });
             saveTasks();
             render();
+            // 自动同步到坚果云
+            autoSyncToCloud();
         }
 
         function deleteCurrentTask() {
@@ -1663,6 +1731,7 @@
             saveTasks();
             closeModal();
             render();
+            autoSyncToCloud();
             showSyncStatus('success', '🗑️', '已删除事项');
         }
 
@@ -1677,9 +1746,118 @@
             saveTasks();
             render();
             hideContextMenu();
+            autoSyncToCloud();
             showSyncStatus('success', '🗑️', '已删除事项');
         }
 
+        // ===== 自动同步到云端 =====
+        function autoSyncToCloud() {
+            // 检查是否配置了坚果云
+            if (!webdavConfig.user || !webdavConfig.pass) {
+                setSyncStatus('', '未配置');
+                return;
+            }
+
+            setSyncStatus('syncing', '同步中...');
+
+            // 先下载合并，再上传（确保数据不丢失）
+            syncMergeAndUpload().then(function(result) {
+                if (result) {
+                    setSyncStatus('synced', '已同步');
+                    showSyncStatus('success', '✅', '数据已同步到坚果云');
+                } else {
+                    setSyncStatus('error', '同步失败');
+                    showSyncStatus('error', '❌', '同步失败，请检查网络');
+                }
+            }).catch(function(e) {
+                console.warn('自动同步失败:', e);
+                setSyncStatus('error', '同步失败');
+            });
+        }
+
+        // ===== 合并同步：先下载再上传 =====
+        async function syncMergeAndUpload() {
+            try {
+                // 1. 先下载云端数据
+                var cloudData = await fetchCloudData();
+
+                if (cloudData && cloudData.tasks) {
+                    // 2. 合并数据：云端 + 本地（去重）
+                    var merged = mergeTasks(cloudData.tasks, tasks);
+                    tasks = merged;
+                    saveTasksToStorage();
+                    render();
+                    updateStats();
+                }
+
+                // 3. 上传合并后的数据
+                var uploadResult = await syncToWebDAV();
+                return uploadResult;
+            } catch (e) {
+                console.error('合并同步失败:', e);
+                return false;
+            }
+        }
+
+        // ===== 获取云端数据 =====
+        async function fetchCloudData() {
+            if (!webdavConfig.user || !webdavConfig.pass) {
+                return null;
+            }
+
+            try {
+                var headers = {
+                    'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass)
+                };
+
+                var response = await webdavProxyRequest('GET', webdavConfig.url, headers, null);
+
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        return null;
+                    }
+                    throw new Error('HTTP ' + response.status);
+                }
+
+                var data = await response.json();
+                return data;
+            } catch (e) {
+                console.warn('获取云端数据失败:', e);
+                return null;
+            }
+        }
+
+        // ===== 合并任务（去重） =====
+        function mergeTasks(cloudTasks, localTasks) {
+            var merged = [];
+            var seenIds = new Set();
+
+            // 先添加云端任务
+            if (cloudTasks && cloudTasks.length > 0) {
+                cloudTasks.forEach(function(t) {
+                    if (t.id && t.startDate && t.endDate) {
+                        merged.push(t);
+                        seenIds.add(t.id);
+                    }
+                });
+            }
+
+            // 再添加本地任务（如果云端没有）
+            if (localTasks && localTasks.length > 0) {
+                localTasks.forEach(function(t) {
+                    if (t.id && t.startDate && t.endDate && !seenIds.has(t.id)) {
+                        merged.push(t);
+                        seenIds.add(t.id);
+                    }
+                });
+            }
+
+            return merged;
+        }
+
+        // ============================================================
+        // 十、编辑任务
+        // ============================================================
         function editTask(id) {
             var task = tasks.find(function(t) { return t.id === id; });
             if (!task) return;
@@ -1699,7 +1877,7 @@
         }
 
         // ============================================================
-        // 九、弹窗管理
+        // 十一、弹窗管理
         // ============================================================
         function openModalWithRange(startDate, endDate) {
             editingTaskId = null;
@@ -1782,7 +1960,7 @@
         }
 
         // ============================================================
-        // 十、渲染
+        // 十二、渲染
         // ============================================================
         function render() {
             var body = document.getElementById('calendarBody');
@@ -1987,7 +2165,7 @@
         }
 
         // ============================================================
-        // 十一、统计
+        // 十三、统计
         // ============================================================
         function getAllDatesWithTasks() {
             var dates = new Set();
@@ -2010,7 +2188,7 @@
         }
 
         // ============================================================
-        // 十二、拖动选择
+        // 十四、拖动选择
         // ============================================================
         var isDragging = false;
         var dragStartDate = null;
@@ -2105,7 +2283,7 @@
         }
 
         // ============================================================
-        // 十三、右键菜单
+        // 十五、右键菜单
         // ============================================================
         function showContextMenu(event, id) {
             event.preventDefault();
@@ -2143,7 +2321,7 @@
         });
 
         // ============================================================
-        // 十四、状态提示
+        // 十六、状态提示
         // ============================================================
         function showSyncStatus(type, icon, message) {
             var statusEl = document.getElementById('syncStatus');
@@ -2167,7 +2345,7 @@
         }
 
         // ============================================================
-        // 十五、年份切换
+        // 十七、年份切换
         // ============================================================
         function changeYear(delta) {
             currentYear += delta;
@@ -2189,7 +2367,7 @@
         }
 
         // ============================================================
-        // 十六、WebDAV - Vercel 代理
+        // 十八、WebDAV - Vercel 代理（超时修复版）
         // ============================================================
         function loadWebDAVConfig() {
             try {
@@ -2201,6 +2379,9 @@
                     document.getElementById('webdavUser').value = config.user || '';
                     document.getElementById('webdavPass').value = config.pass || '';
                     updateWebDAVStatus(true);
+                    if (config.user && config.pass) {
+                        setSyncStatus('', '已配置');
+                    }
                 }
             } catch (e) {
                 console.warn('加载WebDAV配置失败', e);
@@ -2226,23 +2407,20 @@
                 dot.className = 'dot online';
                 text.textContent = '☁️ 已连接坚果云';
                 btn.classList.add('synced');
-                btn.textContent = '☁️ 已同步';
             } else if (webdavConfig.user || webdavConfig.pass) {
                 statusEl.style.display = 'flex';
                 dot.className = 'dot offline';
                 text.textContent = '⚠️ 配置不完整';
                 btn.classList.remove('synced');
-                btn.textContent = '☁️ 云同步';
             } else {
                 statusEl.style.display = 'none';
                 btn.classList.remove('synced');
-                btn.textContent = '☁️ 云同步';
             }
         }
 
         function openWebDAVModal() {
             var modal = document.getElementById('webdavModal');
-            document.getElementById('webdavUrl').value = webdavConfig.url || 'https://dav.jianguoyun.com/dav/日历数据.json';
+            document.getElementById('webdavUrl').value = webdavConfig.url || 'https://dav.jianguoyun.com/dav/01日历/日历数据.json';
             document.getElementById('webdavUser').value = webdavConfig.user || '';
             document.getElementById('webdavPass').value = webdavConfig.pass || '';
             document.getElementById('webdavTestResult').className = 'test-result';
@@ -2254,64 +2432,15 @@
             document.getElementById('webdavModal').classList.remove('active');
         }
 
-        /*
-        // ===== Vercel 代理请求函数 =====
-        async function webdavProxyRequest(method, url, headers, body) {
-            var proxyUrl = PROXY_URL;
-
-            var fetchOptions = {
-                method: 'POST',
-                headers: {
-                    'x-target-url': url,
-                    'authorization': headers['Authorization'] || '',
-                    'content-type': headers['Content-Type'] || 'application/json',
-                    'depth': headers['Depth'] || '0'
-                }
-            };
-
-            if (body) {
-                fetchOptions.body = body;
-            }
-
-            try {
-                var controller = new AbortController();
-                var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
-                fetchOptions.signal = controller.signal;
-
-                var response = await fetch(proxyUrl, fetchOptions);
-                clearTimeout(timeoutId);
-
-                if (!response.ok) {
-                    var errorText = await response.text();
-                    throw new Error('Proxy error ' + response.status + ': ' + errorText);
-                }
-
-                var result = await response.json();
-
-                return {
-                    ok: result.status >= 200 && result.status < 300,
-                    status: result.status,
-                    statusText: result.statusText,
-                    headers: new Headers(result.headers),
-                    json: async function() { return result.data; },
-                    text: async function() {
-                        if (typeof result.data === 'string') return result.data;
-                        return JSON.stringify(result.data);
-                    }
-                };
-            } catch (error) {
-                console.error('❌ 代理请求失败:', error);
-                throw error;
-            }
+        // ===== 辅助函数：延迟 =====
+        function sleep(ms) {
+            return new Promise(function(resolve) { setTimeout(resolve, ms); });
         }
-        
-        */
 
-        // ===== Vercel 代理请求函数（修复版 - 确保 JSON 格式） =====
+        // ===== Vercel 代理请求函数（超时修复版） =====
         async function webdavProxyRequest(method, url, headers, body) {
             var proxyUrl = PROXY_URL;
 
-            // 构建请求体 - 必须为 JSON 格式
             var requestBody = {
                 method: method,
                 url: url,
@@ -2321,16 +2450,14 @@
                 }
             };
 
-            // 如果有 body，添加到请求体中
             if (body) {
                 requestBody.body = body;
             }
 
             try {
-                console.log('🔄 代理请求:', method, url);
-
                 var controller = new AbortController();
-                var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
+                // 超时时间从 30 秒延长到 60 秒（iPad 网络较慢）
+                var timeoutId = setTimeout(function() { controller.abort(); }, 60000);
 
                 var response = await fetch(proxyUrl, {
                     method: 'POST',
@@ -2343,11 +2470,8 @@
 
                 clearTimeout(timeoutId);
 
-                console.log('📡 代理响应状态:', response.status);
-
-                // 解析响应
-                var result;
                 var text = await response.text();
+                var result;
 
                 try {
                     result = JSON.parse(text);
@@ -2359,7 +2483,6 @@
                     throw new Error('Proxy error ' + response.status + ': ' + (result.error || JSON.stringify(result)));
                 }
 
-                // 构建模拟的 Response 对象
                 return {
                     ok: result.status >= 200 && result.status < 300,
                     status: result.status,
@@ -2376,7 +2499,8 @@
                 throw error;
             }
         }
-        // ===== 测试 WebDAV 连接 =====
+
+        // ===== 测试 WebDAV 连接（重试修复版） =====
         async function testWebDAV() {
             var url = document.getElementById('webdavUrl').value.trim();
             var user = document.getElementById('webdavUser').value.trim();
@@ -2396,51 +2520,70 @@
             }
 
             resultEl.className = 'test-result';
-            resultEl.textContent = '⏳ 测试连接中...（通过 Vercel 代理）';
+            resultEl.textContent = '⏳ 测试连接中...';
 
-            try {
-                var headers = {
-                    'Authorization': 'Basic ' + btoa(user + ':' + pass)
-                };
+            // 重试逻辑：最多尝试 2 次
+            var maxRetries = 2;
+            var lastError = null;
 
-                var response = await webdavProxyRequest('HEAD', url, headers, null);
+            for (var attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    if (attempt > 1) {
+                        resultEl.textContent = '⏳ 重试中 (' + attempt + '/' + maxRetries + ')...';
+                        await sleep(1500);
+                    }
 
-                if (response.ok || response.status === 404 || response.status === 403) {
-                    resultEl.className = 'test-result success';
-                    resultEl.textContent = '✅ 连接成功！' + (response.status === 404 ? '文件不存在，将自动创建。' : '服务器可访问。');
-                    return;
-                }
+                    var headers = {
+                        'Authorization': 'Basic ' + btoa(user + ':' + pass)
+                    };
 
-                if (response.status === 405) {
-                    response = await webdavProxyRequest('GET', url, headers, null);
-                    if (response.ok || response.status === 404) {
+                    var response = await webdavProxyRequest('HEAD', url, headers, null);
+
+                    if (response.ok || response.status === 404 || response.status === 403) {
                         resultEl.className = 'test-result success';
-                        resultEl.textContent = '✅ 连接成功！' + (response.status === 404 ? '文件不存在，将自动创建。' : '文件可访问。');
+                        resultEl.textContent = '✅ 连接成功！' + (response.status === 404 ? '文件不存在，将自动创建。' : '服务器可访问。');
                         return;
                     }
-                }
 
-                if (response.status === 401) {
-                    resultEl.className = 'test-result error';
-                    resultEl.textContent = '❌ 认证失败！请检查用户名和应用密码是否正确。';
-                } else {
-                    resultEl.className = 'test-result error';
-                    resultEl.textContent = '❌ 连接失败 (HTTP ' + response.status + ')，请检查服务器地址。';
-                }
+                    if (response.status === 405) {
+                        response = await webdavProxyRequest('GET', url, headers, null);
+                        if (response.ok || response.status === 404) {
+                            resultEl.className = 'test-result success';
+                            resultEl.textContent = '✅ 连接成功！' + (response.status === 404 ? '文件不存在，将自动创建。' : '文件可访问。');
+                            return;
+                        }
+                    }
 
-            } catch (error) {
-                console.error('测试连接错误:', error);
-                var errorMsg = '❌ 连接失败：';
-                if (error.message && error.message.includes('timeout')) {
-                    errorMsg += '请求超时，请检查网络。';
-                } else if (error.message && error.message.includes('fetch')) {
-                    errorMsg += '无法连接到代理服务器，请确认 Vercel 已部署。';
-                } else {
-                    errorMsg += error.message || '未知错误';
+                    if (response.status === 401) {
+                        resultEl.className = 'test-result error';
+                        resultEl.textContent = '❌ 认证失败！请检查用户名和应用密码是否正确。';
+                        return;
+                    }
+
+                    lastError = new Error('HTTP ' + response.status);
+
+                } catch (error) {
+                    console.warn('尝试 ' + attempt + ' 失败:', error);
+                    lastError = error;
+                    if (attempt < maxRetries) continue;
                 }
-                resultEl.className = 'test-result error';
-                resultEl.textContent = errorMsg;
             }
+
+            // 所有尝试都失败
+            var errorMsg = '❌ 连接失败：';
+            if (lastError && lastError.message && lastError.message.includes('timeout')) {
+                errorMsg += '请求超时，请检查网络连接或稍后重试。';
+            } else if (lastError && lastError.message && lastError.message.includes('aborted')) {
+                errorMsg += '请求被中断，请检查网络连接。';
+            } else if (lastError && lastError.message && lastError.message.includes('fetch')) {
+                errorMsg += '无法连接到代理服务器，请确认 Vercel 已部署。';
+            } else if (lastError && lastError.message) {
+                errorMsg += lastError.message;
+            } else {
+                errorMsg += '未知错误，请重试。';
+            }
+            resultEl.className = 'test-result error';
+            resultEl.textContent = errorMsg;
         }
 
         // ===== 同步数据到 WebDAV =====
@@ -2486,51 +2629,7 @@
             }
         }
 
-        // ===== 从 WebDAV 加载数据 =====
-        async function loadFromWebDAV() {
-            if (!webdavConfig.user || !webdavConfig.pass) {
-                return false;
-            }
-
-            try {
-                var headers = {
-                    'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass)
-                };
-
-                var response = await webdavProxyRequest('GET', webdavConfig.url, headers, null);
-
-                if (!response.ok) {
-                    if (response.status === 404) {
-                        console.log('📄 文件不存在，将创建新文件');
-                        return true;
-                    }
-                    if (response.status === 401) {
-                        console.warn('认证失败');
-                        return false;
-                    }
-                    throw new Error('HTTP ' + response.status);
-                }
-
-                var data = await response.json();
-                if (data && data.tasks) {
-                    tasks = data.tasks.filter(function(t) { return t.id && t.startDate && t.endDate; });
-                    tasks.forEach(function(t) {
-                        if (!t.color) t.color = defaultColor;
-                        if (t.text === undefined) t.text = '';
-                    });
-                    saveTasksToStorage();
-                    render();
-                    showSyncStatus('success', '✅', '从坚果云加载了 ' + tasks.length + ' 项事项');
-                    updateWebDAVStatus(true);
-                    return true;
-                }
-                return false;
-            } catch (error) {
-                console.warn('从WebDAV加载失败:', error);
-                return false;
-            }
-        }
-
+        // ===== 保存 WebDAV 配置 =====
         async function saveWebDAVConfig() {
             var url = document.getElementById('webdavUrl').value.trim();
             var user = document.getElementById('webdavUser').value.trim();
@@ -2543,14 +2642,24 @@
 
             webdavConfig = { url: url, user: user, pass: pass };
             saveWebDAVConfigToStorage();
-            await syncToWebDAV();
+
+            setSyncStatus('syncing', '同步中...');
+            var result = await syncMergeAndUpload();
+
+            if (result) {
+                setSyncStatus('synced', '已同步');
+                showSyncStatus('success', '✅', '数据已同步到坚果云');
+            } else {
+                setSyncStatus('error', '同步失败');
+                showSyncStatus('error', '❌', '同步失败，请检查网络');
+            }
+
             closeWebDAVModal();
             updateWebDAVStatus(true);
-            showSyncStatus('success', '✅', '数据已同步到坚果云');
         }
 
         // ============================================================
-        // 十七、File System Access API（简化版）
+        // 十九、File System Access API（简化版）
         // ============================================================
         async function loadDataFromFile() {
             return false;
@@ -2561,7 +2670,7 @@
         }
 
         // ============================================================
-        // 十八、PWA
+        // 二十、PWA
         // ============================================================
         var deferredPrompt = null;
 
@@ -2595,12 +2704,12 @@
         }
 
         // ============================================================
-        // 十九、Service Worker（已移除）
+        // 二十一、Service Worker（已移除）
         // ============================================================
         // 已移除 Service Worker 注册，所有浏览器均可正常打开
 
         // ============================================================
-        // 二十、初始化
+        // 二十二、初始化
         // ============================================================
         document.getElementById('colorOptions').addEventListener('click', function(e) {
             var dot = e.target.closest('.color-dot');
@@ -2621,27 +2730,49 @@
             // 初始化主题
             setTheme(getPreferredTheme());
 
+            // 加载 WebDAV 配置
             loadWebDAVConfig();
+
+            // 加载节假日
             await loadHolidayData(currentYear);
 
-            var webdavLoaded = await loadFromWebDAV();
-
-            if (!webdavLoaded) {
-                var loaded = await loadDataFromFile();
-                if (!loaded) {
-                    loadTasksFromStorage();
-                    showSyncStatus('info', 'ℹ️', '使用本地存储数据');
+            // 从坚果云加载数据（如果已配置）
+            if (webdavConfig.user && webdavConfig.pass) {
+                setSyncStatus('syncing', '加载中...');
+                try {
+                    var loaded = await loadFromWebDAV();
+                    if (loaded) {
+                        setSyncStatus('synced', '已同步');
+                        console.log('✅ 从坚果云加载数据成功');
+                    } else {
+                        setSyncStatus('error', '加载失败');
+                        console.warn('⚠️ 从坚果云加载数据失败');
+                    }
+                } catch (e) {
+                    console.warn('加载数据异常:', e);
+                    setSyncStatus('error', '加载失败');
                 }
+            } else {
+                // 没有配置，使用本地存储
+                loadTasksFromStorage();
+                showSyncStatus('info', 'ℹ️', '使用本地存储数据');
             }
 
             render();
             updateWebDAVStatus(!!(webdavConfig.user && webdavConfig.pass));
+
+            // 如果没有配置，显示提示
+            if (!webdavConfig.user || !webdavConfig.pass) {
+                setSyncStatus('', '未配置');
+                showSyncStatus('info', 'ℹ️', '点击「⚙️ 设置」配置坚果云同步');
+            }
+
             console.log('📅 年度线性日历已加载！');
             console.log('📌 当前年份: ' + currentYear + ', 事项数: ' + tasks.length);
         }
 
         // ============================================================
-        // 启动
+        // 二十三、启动
         // ============================================================
         if (!window.showOpenFilePicker) {
             showSyncStatus('error', '⚠️', '当前浏览器不支持 File System Access API，使用本地存储模式');
