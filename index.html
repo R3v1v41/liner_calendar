@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>年度线性日历 v2.2</title>
+    <title>年度线性日历 v2.3</title>
     <link rel="manifest" href="./manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1165,6 +1165,20 @@
             return h.toString(36);
         }
         function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+        function cleanOldTombstones() {
+            var thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+            var before = tasks.length;
+            tasks = tasks.filter(function(t) {
+                if (!t.deleted) return true;
+                var delTime = t.deletedAt ? new Date(t.deletedAt).getTime() : 0;
+                return delTime > new Date(thirtyDaysAgo).getTime();
+            });
+            var removed = before - tasks.length;
+            if (removed > 0) {
+                console.log('🪦 清理了 ' + removed + ' 个过期墓碑（>30天）');
+                saveTasksToStorage();
+            }
+        }
 
         // ============================================================
         // 存储
@@ -1196,6 +1210,7 @@
                 if (!t.createdBy) t.createdBy = 'legacy';
                 if (!t.updatedBy) t.updatedBy = t.createdBy || 'legacy';
                 if (!t.version) t.version = 1;
+                if (t.deleted && !t.deletedAt) t.deletedAt = t.updatedAt || now;
             });
         }
 
@@ -1334,6 +1349,7 @@
             var t = tasks.find(function(x) { return x.id === id; });
             if (t) {
                 t.deleted = true;
+                t.deletedAt = getNowISO();
                 t.updatedAt = getNowISO();
                 t.updatedBy = DEVICE_ID;
                 t.version = (t.version || 0) + 1;
@@ -1350,6 +1366,7 @@
             var t = tasks.find(function(x) { return x.id === editingTaskId; });
             if (t) {
                 t.deleted = true;
+                t.deletedAt = getNowISO();
                 t.updatedAt = getNowISO();
                 t.updatedBy = DEVICE_ID;
                 t.version = (t.version || 0) + 1;
@@ -1368,6 +1385,7 @@
             var t = tasks.find(function(x) { return x.id === id; });
             if (t) {
                 t.deleted = true;
+                t.deletedAt = getNowISO();
                 t.updatedAt = getNowISO();
                 t.updatedBy = DEVICE_ID;
                 t.version = (t.version || 0) + 1;
@@ -1738,13 +1756,13 @@
                 }
             });
 
-            // 第三步：构建结果并清理临时标记
+            // 第三步：构建结果（★ 保留墓碑以传播删除状态）
             var result = [];
             for (var key in taskMap) {
                 if (taskMap.hasOwnProperty(key)) {
                     var item = taskMap[key].task;
-                    if (item.deleted === true) continue; // 过滤已删除
-                    // 清理临时冲突标记（不存入最终数据）
+                    // ★ 不在此处过滤已删除 → 墓碑传递到上传，让其他设备知道删除
+                    // 清理临时冲突标记
                     delete item._conflict;
                     delete item._cloudBy;
                     delete item._localBy;
@@ -1803,32 +1821,52 @@
 
             var activeTasks = tasks.filter(function(t) { return t.deleted !== true; });
 
-            // ★ 安全保护：如果本地无有效数据且云端已存在数据，禁止上传空数据覆盖云端
+            // ★ 上传任务 = 活跃任务 + 近期墓碑（30天内删除的，用于跨设备传播删除）
+            var thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+            var tombstoneTasks = tasks.filter(function(t) {
+                if (!t.deleted) return false;
+                var delTime = t.deletedAt ? new Date(t.deletedAt).getTime() : 0;
+                return delTime > new Date(thirtyDaysAgo).getTime();
+            });
+            var uploadTasks = activeTasks.concat(tombstoneTasks);
+
+            if (tombstoneTasks.length > 0) {
+                console.log('🪦 携带 ' + tombstoneTasks.length + ' 个墓碑（30天内删除），用于传播删除');
+            }
+
+            // ★ 安全保护：活跃为空但云端有数据 → 检查是否有墓碑需上传
             if (activeTasks.length === 0) {
                 // 先检查云端是否有数据
                 try {
                     var checkMeta = await fetchCloudMeta();
-                    if (checkMeta && checkMeta.exists && checkMeta.tasks.length > 0) {
-                        console.error('🛑 安全拦截：本地为空但云端有 ' + checkMeta.tasks.length + ' 条数据，拒绝上传空数据');
-                        showSyncMessage('🛑 云端已有数据，拒绝上传空数据以保护云端日程', 'error');
-                        return false;
+                    if (checkMeta && checkMeta.exists) {
+                        // 检查云端活跃任务数
+                        var cloudActive = (checkMeta.tasks || []).filter(function(t) { return !t.deleted; });
+                        if (cloudActive.length > 0 && tombstoneTasks.length === 0) {
+                            console.error('🛑 安全拦截：本地活跃为空，云端有 ' + cloudActive.length + ' 条活跃数据，拒绝上传');
+                            showSyncMessage('🛑 云端已有数据，拒绝上传以保护云端日程', 'error');
+                            return false;
+                        }
                     }
                 } catch (e) {
-                    console.error('🛑 无法验证云端状态，拒绝上传空数据');
+                    console.error('🛑 无法验证云端状态，拒绝上传');
                     showSyncMessage('🛑 无法连接云端，取消上传以保护数据', 'error');
                     return false;
                 }
-                console.log('📄 云端和本地都为空，允许同步');
+                if (tombstoneTasks.length > 0) {
+                    console.log('📄 仅上传 ' + tombstoneTasks.length + ' 个墓碑（无活跃任务）');
+                }
             }
 
             // 构建上传数据
             var newVersion = (cloudSyncVersion || 0) + 1;
             var uploadData = {
-                tasks: activeTasks,
-                format: '1.1',
+                tasks: uploadTasks,
+                format: '1.2',
                 syncVersion: newVersion,
                 updatedAt: new Date().toISOString(),
                 lastDevice: DEVICE_ID,
+                tombstoneDays: 30,
                 hash: getDataVersion()
             };
 
@@ -1846,7 +1884,9 @@
                 var response = await webdavProxyRequest('PUT', webdavConfig.url, reqHeaders, JSON.stringify(uploadData, null, 2));
 
                 if (response.ok || response.status === 201 || response.status === 204) {
-                    console.log('✅ 上传成功，' + activeTasks.length + ' 项，版本 ' + newVersion);
+                    var activeCount = uploadTasks.filter(function(t) { return !t.deleted; }).length;
+                    var tombCount = uploadTasks.length - activeCount;
+                    console.log('✅ 上传成功，' + activeCount + ' 项活跃 + ' + tombCount + ' 墓碑，版本 ' + newVersion);
                     cloudSyncVersion = newVersion;
                     try { localStorage.setItem('calendar_cloud_version', cloudSyncVersion); } catch (e) {}
                     // 更新ETag
@@ -1855,6 +1895,8 @@
                         cloudETag = newETag;
                         try { localStorage.setItem('calendar_cloud_etag', cloudETag); } catch (e) {}
                     }
+                    // ★ 清理本地超过30天的墓碑（云端已同步，本地可删除）
+                    cleanOldTombstones();
                     return true;
                 }
 
