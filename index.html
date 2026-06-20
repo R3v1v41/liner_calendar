@@ -267,7 +267,7 @@
         .app-container {
             width: 100%; min-height: 100vh;
             background: var(--bg-container);
-            padding: 16px 20px 28px;
+            padding: 14px 18px 24px;
             overflow-x: auto;
             transition: background var(--transition-slow);
         }
@@ -275,7 +275,7 @@
         /* ===== 头部 ===== */
         .header {
             display: flex; justify-content: space-between; align-items: center;
-            flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+            flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
         }
         .header h1 {
             font-size: 20px; font-weight: 700; color: var(--text-primary);
@@ -287,8 +287,8 @@
         }
         .header-actions button, .btn-theme, .sync-status-badge {
             background: var(--bg-btn-cancel);
-            border: none; padding: 4px 12px; border-radius: 30px;
-            font-size: 11px; font-weight: 500; color: var(--text-btn-cancel);
+            border: none; padding: 6px 14px; border-radius: 30px;
+            font-size: 12px; font-weight: 500; color: var(--text-btn-cancel);
             cursor: pointer; font-family: inherit;
             transition: var(--transition-fast); white-space: nowrap;
         }
@@ -310,32 +310,36 @@
 
         /* ===== 同步按钮组 ===== */
         .sync-btn-group {
-            display: flex; gap: 3px; align-items: center;
+            display: flex; gap: 4px; align-items: center;
+        }
+        .sync-btn-group .sync-btn {
+            border: none; padding: 5px 12px; border-radius: 30px;
+            font-size: 11px; font-weight: 600; cursor: pointer;
+            font-family: inherit; transition: var(--transition-fast);
+            white-space: nowrap; display: flex; align-items: center; gap: 4px;
         }
         .sync-btn-group .btn-upload {
-            background: var(--bg-btn-upload); color: var(--text-sync-success);
-            font-size: 10px; padding: 3px 8px;
+            background: var(--bg-btn-upload); color: #2e7d32;
         }
         .sync-btn-group .btn-upload:hover { background: var(--bg-btn-upload-hover); }
         .sync-btn-group .btn-download {
-            background: var(--bg-btn-download); color: var(--text-day-adjust);
-            font-size: 10px; padding: 3px 8px;
+            background: var(--bg-btn-download); color: #b85a0a;
         }
         .sync-btn-group .btn-download:hover { background: var(--bg-btn-download-hover); }
         .sync-btn-group .btn-merge {
-            background: var(--bg-btn-merge); color: var(--text-btn-webdav);
-            font-size: 10px; padding: 3px 8px;
+            background: var(--bg-btn-merge); color: #1a5fb0;
         }
         .sync-btn-group .btn-merge:hover { background: var(--bg-btn-merge-hover); }
         .sync-btn-group .sync-divider {
             color: var(--text-muted); font-size: 10px; padding: 0 2px;
         }
 
-        .btn-theme { font-size: 14px; padding: 4px 10px; }
+        .btn-theme { font-size: 14px; padding: 5px 12px; }
         .btn-theme:hover { background: var(--bg-btn-cancel-hover); transform: scale(1.05); }
 
         .sync-status-badge {
-            font-size: 10px; padding: 3px 10px; border: 1px solid var(--border-color);
+            font-size: 10px; padding: 4px 12px; border: 1px solid var(--border-color);
+            min-width: 56px; text-align: center;
         }
         .sync-status-badge.synced {
             background: var(--bg-sync-success); color: var(--text-sync-success);
@@ -744,11 +748,9 @@
         @media (max-width: 768px) {
             .app-container { padding: 10px 8px 16px; }
             .header h1 { font-size: 16px; }
-            .header-actions button, .sync-status-badge { font-size: 9px; padding: 3px 8px; }
-            .sync-btn-group .btn-upload, .sync-btn-group .btn-download, .sync-btn-group .btn-merge {
-                font-size: 9px; padding: 2px 6px;
-            }
-            .btn-theme { font-size: 12px; padding: 3px 8px; }
+            .header-actions button, .sync-status-badge { font-size: 9px; padding: 4px 10px; }
+            .sync-btn-group .sync-btn { font-size: 9px; padding: 3px 8px; }
+            .btn-theme { font-size: 12px; padding: 4px 8px; }
             .month-label { flex: 0 0 40px; min-width: 40px; font-size: 11px; }
             .month-label .month-name { font-size: 12px; }
             .day-cell { height: 28px; font-size: 10px; min-width: 18px; border-radius: 4px; }
@@ -766,11 +768,9 @@
         @media (max-width: 480px) {
             .app-container { padding: 6px 4px 12px; }
             .header h1 { font-size: 14px; }
-            .header-actions button, .sync-status-badge { font-size: 8px; padding: 2px 6px; }
-            .sync-btn-group .btn-upload, .sync-btn-group .btn-download, .sync-btn-group .btn-merge {
-                font-size: 8px; padding: 2px 5px;
-            }
-            .btn-theme { font-size: 10px; padding: 2px 6px; }
+            .header-actions button, .sync-status-badge { font-size: 8px; padding: 3px 7px; }
+            .sync-btn-group .sync-btn { font-size: 8px; padding: 2px 6px; }
+            .btn-theme { font-size: 10px; padding: 3px 6px; }
             .month-label { flex: 0 0 32px; min-width: 32px; font-size: 9px; }
             .month-label .month-name { font-size: 10px; }
             .day-cell { height: 24px; font-size: 8px; min-width: 14px; border-radius: 3px; border-width: 1px; }
@@ -797,17 +797,17 @@
         <div class="header">
             <h1>📅 年度<span>线性</span>日历</h1>
             <div class="header-actions">
-                <span class="sync-status-badge" id="syncBadge">☁️ 未同步</span>
+                <span class="sync-status-badge" id="syncBadge">☁️</span>
                 <div class="sync-btn-group">
-                    <button class="btn-upload" onclick="syncUpload()" title="上传本地数据到云端">⬆️</button>
-                    <button class="btn-download" onclick="syncDownload()" title="从云端下载数据">⬇️</button>
-                    <button class="btn-merge" onclick="syncMerge()" title="双向合并同步">🔄</button>
+                    <button class="sync-btn btn-upload" onclick="syncUpload()" title="上传本地数据到云端">⬆️ 上传</button>
+                    <button class="sync-btn btn-download" onclick="syncDownload()" title="从云端下载数据">⬇️ 下载</button>
+                    <button class="sync-btn btn-merge" onclick="syncMerge()" title="双向合并同步">🔄 合并</button>
                 </div>
                 <button class="btn-theme" onclick="toggleTheme()" id="themeBtn">🌙</button>
-                <button class="btn-today" onclick="goToToday()">●</button>
-                <button class="btn-primary" onclick="openModal()">＋</button>
-                <button class="btn-update-holiday" onclick="updateHolidayData()">📅</button>
-                <button class="btn-webdav" onclick="openWebDAVModal()" id="webdavBtn">⚙️</button>
+                <button class="btn-today" onclick="goToToday()">📌 今天</button>
+                <button class="btn-primary" onclick="openModal()">➕ 新建</button>
+                <button class="btn-update-holiday" onclick="updateHolidayData()">📅 节假日</button>
+                <button class="btn-webdav" onclick="openWebDAVModal()" id="webdavBtn">⚙️ 设置</button>
             </div>
         </div>
 
@@ -928,6 +928,7 @@
         var weekdayNames = ['日', '一', '二', '三', '四', '五', '六'];
         var MAX_COLS = 37;
         var contextTaskId = null;
+        var isSyncing = false;
 
         // ============================================================
         // WebDAV配置
@@ -941,10 +942,18 @@
         // ============================================================
         function setSyncStatus(status, msg) {
             syncBadge.className = 'sync-status-badge';
-            if (status === 'synced') { syncBadge.classList.add('synced'); syncBadge.textContent = '☁️ ' + (msg || '已同步'); }
-            else if (status === 'syncing') { syncBadge.classList.add('syncing'); syncBadge.textContent = '⏳ ' + (msg || '同步中'); }
-            else if (status === 'error') { syncBadge.classList.add('error'); syncBadge.textContent = '❌ ' + (msg || '失败'); }
-            else { syncBadge.textContent = '☁️ ' + (msg || '未同步'); }
+            if (status === 'synced') {
+                syncBadge.classList.add('synced');
+                syncBadge.textContent = '☁️ ' + (msg || '已同步');
+            } else if (status === 'syncing') {
+                syncBadge.classList.add('syncing');
+                syncBadge.textContent = '⏳ ' + (msg || '同步中');
+            } else if (status === 'error') {
+                syncBadge.classList.add('error');
+                syncBadge.textContent = '❌ ' + (msg || '失败');
+            } else {
+                syncBadge.textContent = '☁️ ' + (msg || '未同步');
+            }
         }
 
         function showSyncMessage(msg, type) {
@@ -1010,6 +1019,8 @@
                     tasks.forEach(function(t) {
                         if (!t.color) t.color = defaultColor;
                         if (t.text === undefined) t.text = '';
+                        if (t.updatedAt === undefined) t.updatedAt = new Date().toISOString();
+                        if (t.deleted === undefined) t.deleted = false;
                     });
                 }
             } catch (e) { tasks = []; }
@@ -1107,171 +1118,325 @@
         }
 
         // ============================================================
-        // 任务CRUD
+        // 任务CRUD（含updatedAt更新）
         // ============================================================
+        function getNowISO() { return new Date().toISOString(); }
+
         function addTask(text, startDate, endDate, color) {
-            tasks.push({ id: generateId(), text: (text || '').trim(), startDate: startDate, endDate: endDate, color: color || defaultColor });
-            saveTasks(); render(); 
-            // 自动合并同步（日常使用）
-            if (webdavConfig.user && webdavConfig.pass) {
-                setSyncStatus('syncing', '同步中...');
-                syncMerge().catch(function() { setSyncStatus('error', '同步失败'); });
-            }
+            var now = getNowISO();
+            tasks.push({
+                id: generateId(),
+                text: (text || '').trim(),
+                startDate: startDate,
+                endDate: endDate,
+                color: color || defaultColor,
+                createdAt: now,
+                updatedAt: now,
+                deleted: false
+            });
+            saveTasks();
+            render();
+            autoSyncAfterChange();
         }
+
         function updateTask(id, text, startDate, endDate, color) {
             var t = tasks.find(function(x) { return x.id === id; });
-            if (t) { t.text = (text || '').trim(); t.startDate = startDate; t.endDate = endDate; t.color = color || defaultColor; saveTasks(); render(); 
-                if (webdavConfig.user && webdavConfig.pass) { setSyncStatus('syncing', '同步中...'); syncMerge().catch(function() { setSyncStatus('error', '同步失败'); }); }
+            if (t) {
+                t.text = (text || '').trim();
+                t.startDate = startDate;
+                t.endDate = endDate;
+                t.color = color || defaultColor;
+                t.updatedAt = getNowISO();  // ✅ 只有用户修改时才更新
+                saveTasks();
+                render();
+                autoSyncAfterChange();
             }
         }
+
         function deleteTask(id) {
             if (!confirm('确定删除？')) return;
-            tasks = tasks.filter(function(t) { return t.id !== id; });
-            saveTasks(); render();
-            if (webdavConfig.user && webdavConfig.pass) { setSyncStatus('syncing', '同步中...'); syncMerge().catch(function() { setSyncStatus('error', '同步失败'); }); }
+            var t = tasks.find(function(x) { return x.id === id; });
+            if (t) {
+                t.deleted = true;
+                t.updatedAt = getNowISO();
+                saveTasks();
+                render();
+                autoSyncAfterChange();
+                showSyncMessage('🗑️ 已删除', 'success');
+            }
         }
+
         function deleteCurrentTask() {
             if (!editingTaskId) return;
             if (!confirm('确定删除？')) return;
-            tasks = tasks.filter(function(t) { return t.id !== editingTaskId; });
-            saveTasks(); closeModal(); render();
-            if (webdavConfig.user && webdavConfig.pass) { setSyncStatus('syncing', '同步中...'); syncMerge().catch(function() { setSyncStatus('error', '同步失败'); }); }
-            showSyncMessage('🗑️ 已删除', 'success');
+            var t = tasks.find(function(x) { return x.id === editingTaskId; });
+            if (t) {
+                t.deleted = true;
+                t.updatedAt = getNowISO();
+                saveTasks();
+                closeModal();
+                render();
+                autoSyncAfterChange();
+                showSyncMessage('🗑️ 已删除', 'success');
+            }
         }
+
         function deleteTaskDirect(id, event) {
             if (event) { event.stopPropagation(); event.preventDefault(); }
             if (!id) return;
             if (!confirm('确定删除？')) return;
-            tasks = tasks.filter(function(t) { return t.id !== id; });
-            saveTasks(); render(); hideContextMenu();
-            if (webdavConfig.user && webdavConfig.pass) { setSyncStatus('syncing', '同步中...'); syncMerge().catch(function() { setSyncStatus('error', '同步失败'); }); }
-            showSyncMessage('🗑️ 已删除', 'success');
+            var t = tasks.find(function(x) { return x.id === id; });
+            if (t) {
+                t.deleted = true;
+                t.updatedAt = getNowISO();
+                saveTasks();
+                render();
+                hideContextMenu();
+                autoSyncAfterChange();
+                showSyncMessage('🗑️ 已删除', 'success');
+            }
+        }
+
+        // 自动同步（带防抖）
+        var autoSyncTimer = null;
+
+        function autoSyncAfterChange() {
+            if (!webdavConfig.user || !webdavConfig.pass) {
+                setSyncStatus('', '未配置');
+                return;
+            }
+            setSyncStatus('syncing', '同步中...');
+            clearTimeout(autoSyncTimer);
+            autoSyncTimer = setTimeout(function() {
+                syncMergeWithRetry(3);
+            }, 1000);
         }
 
         // ============================================================
-        // 独立同步功能：上传、下载、合并
+        // 独立同步功能：上传、下载、合并（带重试）
         // ============================================================
-        
-        // 上传：本地 → 云端（覆盖云端）
+
+        function syncWithRetry(syncFn, retries, name) {
+            var attempt = 0;
+            return new Promise(function(resolve, reject) {
+                function doAttempt() {
+                    attempt++;
+                    syncFn().then(function(result) {
+                        if (result) {
+                            resolve(true);
+                        } else if (attempt < retries) {
+                            console.log('⏳ ' + name + ' 失败，重试 ' + attempt + '/' + retries);
+                            setTimeout(doAttempt, 2000);
+                        } else {
+                            reject(new Error(name + ' 失败，已重试 ' + retries + ' 次'));
+                        }
+                    }).catch(function(e) {
+                        if (attempt < retries) {
+                            console.log('⏳ ' + name + ' 错误，重试 ' + attempt + '/' + retries, e);
+                            setTimeout(doAttempt, 2000);
+                        } else {
+                            reject(e);
+                        }
+                    });
+                }
+                doAttempt();
+            });
+        }
+
+        function syncMergeWithRetry(retries) {
+            if (isSyncing) return;
+            isSyncing = true;
+            setSyncStatus('syncing', '合并中...');
+            syncWithRetry(syncMergeCore, retries || 3, '合并同步').then(function() {
+                setSyncStatus('synced', '已同步');
+                showSyncMessage('✅ 数据已合并同步', 'success');
+                isSyncing = false;
+            }).catch(function(e) {
+                setSyncStatus('error', '同步失败');
+                showSyncMessage('❌ 同步失败：' + e.message, 'error');
+                isSyncing = false;
+            });
+        }
+
+        // ===== 上传：本地 → 云端 =====
         async function syncUpload() {
             if (!webdavConfig.user || !webdavConfig.pass) {
                 showSyncMessage('⚠️ 请先配置 WebDAV', 'error');
                 return;
             }
+            if (isSyncing) { showSyncMessage('⏳ 同步进行中...', ''); return; }
+            isSyncing = true;
             setSyncStatus('syncing', '上传中...');
             try {
-                var result = await syncToWebDAV();
+                var result = await syncWithRetry(function() {
+                    return syncToWebDAV();
+                }, 3, '上传');
                 if (result) {
                     setSyncStatus('synced', '已上传');
                     showSyncMessage('✅ 数据已上传到云端', 'success');
                 } else {
                     setSyncStatus('error', '上传失败');
-                    showSyncMessage('❌ 上传失败，请检查网络', 'error');
+                    showSyncMessage('❌ 上传失败', 'error');
                 }
             } catch (e) {
                 setSyncStatus('error', '上传失败');
                 showSyncMessage('❌ 上传失败：' + e.message, 'error');
             }
+            isSyncing = false;
         }
 
-        // 下载：云端 → 本地（覆盖本地）
+        // ===== 下载：云端 → 本地 =====
         async function syncDownload() {
             if (!webdavConfig.user || !webdavConfig.pass) {
                 showSyncMessage('⚠️ 请先配置 WebDAV', 'error');
                 return;
             }
+            if (isSyncing) { showSyncMessage('⏳ 同步进行中...', ''); return; }
+            isSyncing = true;
             setSyncStatus('syncing', '下载中...');
             try {
-                var result = await loadFromWebDAV(true); // force = true 强制覆盖
+                var result = await syncWithRetry(function() {
+                    return loadFromWebDAV(true);
+                }, 3, '下载');
                 if (result) {
                     setSyncStatus('synced', '已下载');
                     showSyncMessage('✅ 已从云端下载数据', 'success');
                     render();
                 } else {
                     setSyncStatus('error', '下载失败');
-                    showSyncMessage('❌ 下载失败，请检查网络', 'error');
+                    showSyncMessage('❌ 下载失败', 'error');
                 }
             } catch (e) {
                 setSyncStatus('error', '下载失败');
                 showSyncMessage('❌ 下载失败：' + e.message, 'error');
             }
+            isSyncing = false;
         }
 
-        // 合并：双向合并（推荐日常使用）
+        // ===== 合并 =====
         async function syncMerge() {
             if (!webdavConfig.user || !webdavConfig.pass) {
                 showSyncMessage('⚠️ 请先配置 WebDAV', 'error');
                 return;
             }
-            setSyncStatus('syncing', '合并中...');
-            try {
-                var result = await syncMergeAndUpload();
-                if (result) {
-                    setSyncStatus('synced', '已同步');
-                    showSyncMessage('✅ 数据已合并同步', 'success');
-                } else {
-                    setSyncStatus('error', '合并失败');
-                    showSyncMessage('❌ 合并失败，请检查网络', 'error');
-                }
-            } catch (e) {
-                setSyncStatus('error', '合并失败');
-                showSyncMessage('❌ 合并失败：' + e.message, 'error');
-            }
+            if (isSyncing) { showSyncMessage('⏳ 同步进行中...', ''); return; }
+            syncMergeWithRetry(3);
         }
 
-        // ===== 合并同步核心函数 =====
-        async function syncMergeAndUpload() {
+        // ===== 合并核心逻辑 =====
+        async function syncMergeCore() {
             try {
+                // 1. 获取云端数据
                 var cloudData = await fetchCloudData();
-                if (cloudData && cloudData.tasks && cloudData.tasks.length > 0) {
-                    var merged = mergeTasksByTimestamp(cloudData.tasks, tasks);
-                    tasks = merged;
+                var cloudTasks = (cloudData && cloudData.tasks) ? cloudData.tasks : [];
+
+                // 2. 获取本地数据（过滤已删除的）
+                var localTasks = tasks.filter(function(t) { return t.deleted !== true; });
+
+                // 3. 安全检查
+                if (localTasks.length === 0 && cloudTasks.length === 0) {
+                    console.log('📭 本地和云端都无数据，跳过同步');
+                    return true;
+                }
+
+                // 4. 本地为空，云端有数据 → 下载
+                if (localTasks.length === 0 && cloudTasks.length > 0) {
+                    console.log('📥 本地为空，从云端下载 ' + cloudTasks.length + ' 项');
+                    tasks = cloudTasks;
                     saveTasksToStorage();
                     render();
                     updateStats();
+                    return true;
                 }
+
+                // 5. 本地有数据，云端为空 → 上传
+                if (localTasks.length > 0 && cloudTasks.length === 0) {
+                    console.log('📤 云端为空，上传本地 ' + localTasks.length + ' 项');
+                    return await syncToWebDAV();
+                }
+
+                // 6. 双方都有数据 → 合并
+                console.log('🔀 合并本地(' + localTasks.length + ') 和云端(' + cloudTasks.length + ')');
+                var merged = mergeTasksByTimestamp(cloudTasks, localTasks);
+
+                if (merged.length === 0 && (localTasks.length > 0 || cloudTasks.length > 0)) {
+                    console.error('❌ 合并结果异常为空，中止同步');
+                    return false;
+                }
+
+                tasks = merged;
+                saveTasksToStorage();
+                render();
+                updateStats();
+
+                console.log('📤 上传合并后的 ' + tasks.length + ' 项数据');
                 return await syncToWebDAV();
+
             } catch (e) {
-                console.warn('合并同步失败:', e);
-                return false;
+                console.error('❌ 合并同步失败:', e);
+                throw e;
             }
         }
 
-        // ===== 按时间戳合并（保留最新） =====
+        // ===== 按 updatedAt 合并（方案三：保留原始 updatedAt，合并时不修改） =====
         function mergeTasksByTimestamp(cloudTasks, localTasks) {
             var taskMap = {};
-            var now = Date.now();
 
-            // 先添加本地任务（带时间戳）
+            // 1. 添加本地任务（保留原始 updatedAt）
             if (localTasks && localTasks.length > 0) {
                 localTasks.forEach(function(t) {
-                    if (t.id && t.startDate && t.endDate) {
-                        if (!t._ts) t._ts = now;
-                        taskMap[t.id] = t;
+                    if (t && t.id && t.startDate && t.endDate) {
+                        if (!t.updatedAt) t.updatedAt = new Date().toISOString();
+                        if (t.deleted === undefined) t.deleted = false;
+                        // 深拷贝，保留所有原始字段
+                        taskMap[t.id] = JSON.parse(JSON.stringify(t));
                     }
                 });
             }
 
-            // 再合并云端任务
+            // 2. 合并云端任务（只读取比较，不修改 updatedAt）
             if (cloudTasks && cloudTasks.length > 0) {
                 cloudTasks.forEach(function(t) {
-                    if (t.id && t.startDate && t.endDate) {
-                        if (!t._ts) t._ts = now - 1000;
+                    if (t && t.id && t.startDate && t.endDate) {
+                        if (!t.updatedAt) t.updatedAt = new Date().toISOString();
+                        if (t.deleted === undefined) t.deleted = false;
+
                         if (!taskMap[t.id]) {
-                            taskMap[t.id] = t;
-                        } else if (t._ts > taskMap[t.id]._ts) {
-                            taskMap[t.id] = t;
+                            // 本地没有 → 添加云端版本
+                            taskMap[t.id] = JSON.parse(JSON.stringify(t));
+                        } else {
+                            // 本地已有 → 比较 updatedAt，保留较新的
+                            var local = taskMap[t.id];
+                            var cloudTime = new Date(t.updatedAt).getTime();
+                            var localTime = new Date(local.updatedAt).getTime();
+
+                            if (cloudTime > localTime) {
+                                // 云端更新 → 覆盖本地（深拷贝）
+                                taskMap[t.id] = JSON.parse(JSON.stringify(t));
+                                console.log('🔄 云端更新覆盖本地:', t.id);
+                            } else {
+                                // 本地更新 → 保留本地
+                                console.log('🔄 本地更新保留:', t.id);
+                            }
                         }
                     }
                 });
             }
 
+            // 3. 过滤已删除的（软删除）
             var result = [];
             for (var key in taskMap) {
                 if (taskMap.hasOwnProperty(key)) {
-                    result.push(taskMap[key]);
+                    var item = taskMap[key];
+                    if (item.deleted === true) {
+                        console.log('🗑️ 跳过已删除项:', key);
+                        continue;
+                    }
+                    result.push(item);
                 }
             }
+
+            console.log('📊 合并结果:', result.length, '项');
             return result;
         }
 
@@ -1382,7 +1547,8 @@
                 var firstDayOfWeek = new Date(year, month, 1).getDay();
                 var monthKey = year + '-' + String(month + 1).padStart(2, '0');
 
-                var monthTasks = tasks.filter(function(t) {
+                var activeTasks = tasks.filter(function(t) { return t.deleted !== true; });
+                var monthTasks = activeTasks.filter(function(t) {
                     var tm = t.startDate.substring(0, 7);
                     return tm === monthKey || (t.startDate <= monthKey + '-31' && t.endDate >= monthKey + '-01');
                 });
@@ -1524,7 +1690,8 @@
         // ============================================================
         function getAllDatesWithTasks() {
             var dates = new Set();
-            tasks.forEach(function(t) {
+            var activeTasks = tasks.filter(function(t) { return t.deleted !== true; });
+            activeTasks.forEach(function(t) {
                 var d = new Date(t.startDate);
                 var end = new Date(t.endDate);
                 while (d <= end) { dates.add(formatDate(d)); d.setDate(d.getDate() + 1); }
@@ -1532,7 +1699,8 @@
             return dates;
         }
         function updateStats() {
-            document.getElementById('totalTasks').textContent = tasks.length;
+            var activeTasks = tasks.filter(function(t) { return t.deleted !== true; });
+            document.getElementById('totalTasks').textContent = activeTasks.length;
             document.getElementById('activeDays').textContent = getAllDatesWithTasks().size;
             document.getElementById('holidayCount').textContent = Object.keys(holidayData).length;
         }
@@ -1728,7 +1896,8 @@
 
             try {
                 var controller = new AbortController();
-                var timeoutId = setTimeout(function() { controller.abort(); }, 45000);
+                // iPad 超时 60 秒
+                var timeoutId = setTimeout(function() { controller.abort(); }, 60000);
                 var response = await fetch(PROXY_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1812,7 +1981,13 @@
         // ===== 同步到WebDAV（上传） =====
         async function syncToWebDAV() {
             if (!webdavConfig.user || !webdavConfig.pass) return false;
-            var data = { tasks: tasks, version: '1.0', updatedAt: new Date().toISOString(), hash: getDataVersion() };
+            var activeTasks = tasks.filter(function(t) { return t.deleted !== true; });
+            var data = {
+                tasks: activeTasks,
+                version: '1.0',
+                updatedAt: new Date().toISOString(),
+                hash: getDataVersion()
+            };
             try {
                 var headers = {
                     'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass),
@@ -1835,27 +2010,34 @@
         async function loadFromWebDAV(forceOverwrite) {
             if (!webdavConfig.user || !webdavConfig.pass) return false;
             try {
+                console.log('📥 开始下载... 强制覆盖模式:', forceOverwrite);
                 var headers = { 'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass) };
                 var response = await webdavProxyRequest('GET', webdavConfig.url, headers, null);
+
                 if (!response.ok) {
-                    if (response.status === 404) { 
-                        showSyncMessage('📄 云端文件不存在，将创建', 'success');
-                        return true; 
+                    if (response.status === 404) {
+                        console.log('📄 云端文件不存在');
+                        return true;
                     }
-                    if (response.status === 401) return false;
+                    if (response.status === 401) {
+                        showSyncMessage('❌ 认证失败', 'error');
+                        return false;
+                    }
                     throw new Error('HTTP ' + response.status);
                 }
+
                 var data = await response.json();
                 if (data && data.tasks && data.tasks.length > 0) {
+                    console.log('☁️ 云端任务数:', data.tasks.length);
                     if (forceOverwrite) {
-                        // 强制覆盖本地
                         tasks = data.tasks.filter(function(t) { return t.id && t.startDate && t.endDate; });
                         tasks.forEach(function(t) {
                             if (!t.color) t.color = defaultColor;
                             if (t.text === undefined) t.text = '';
+                            if (t.updatedAt === undefined) t.updatedAt = new Date().toISOString();
+                            if (t.deleted === undefined) t.deleted = false;
                         });
                     } else {
-                        // 合并（但保留本地较新的）
                         tasks = mergeTasksByTimestamp(data.tasks, tasks);
                     }
                     saveTasksToStorage();
@@ -1864,7 +2046,11 @@
                     return true;
                 }
                 return true;
-            } catch (e) { console.warn('从WebDAV加载失败:', e); return false; }
+            } catch (e) {
+                console.warn('从WebDAV加载失败:', e);
+                showSyncMessage('❌ 下载失败：' + e.message, 'error');
+                return false;
+            }
         }
 
         // ===== 获取云端数据 =====
@@ -1881,28 +2067,74 @@
             } catch (e) { console.warn('获取云端数据失败:', e); return null; }
         }
 
-        // ===== 保存WebDAV配置 =====
+        // ===== 保存WebDAV配置（首次配置先检查云端） =====
         async function saveWebDAVConfig() {
             var url = document.getElementById('webdavUrl').value.trim();
             var user = document.getElementById('webdavUser').value.trim();
             var pass = document.getElementById('webdavPass').value.trim();
             if (!url || !user || !pass) { alert('请填写完整信息'); return; }
+
             webdavConfig = { url: url, user: user, pass: pass };
             saveWebDAVConfigToStorage();
-            setSyncStatus('syncing', '同步中...');
+
+            setSyncStatus('syncing', '连接中...');
+            showSyncMessage('⏳ 正在连接云端...', '');
+
             try {
-                var result = await syncMergeAndUpload();
-                if (result) {
-                    setSyncStatus('synced', '已同步');
-                    showSyncMessage('✅ 配置已保存，数据已同步', 'success');
+                // 1. 检查云端是否有数据
+                var cloudData = await fetchCloudData();
+                var hasCloudData = cloudData && cloudData.tasks && cloudData.tasks.length > 0;
+
+                // 2. 检查本地是否有数据
+                var hasLocalData = tasks.filter(function(t) { return t.deleted !== true; }).length > 0;
+
+                if (hasCloudData && !hasLocalData) {
+                    // 云端有数据，本地为空 → 下载
+                    showSyncMessage('📥 从云端下载数据...', '');
+                    var loaded = await loadFromWebDAV(true);
+                    if (loaded) {
+                        setSyncStatus('synced', '已下载');
+                        showSyncMessage('✅ 已从云端下载 ' + tasks.length + ' 项数据', 'success');
+                        render();
+                    } else {
+                        setSyncStatus('error', '下载失败');
+                        showSyncMessage('❌ 下载失败', 'error');
+                    }
+                } else if (!hasCloudData && hasLocalData) {
+                    // 本地有数据，云端为空 → 上传
+                    showSyncMessage('📤 上传本地数据到云端...', '');
+                    var uploaded = await syncToWebDAV();
+                    if (uploaded) {
+                        setSyncStatus('synced', '已上传');
+                        showSyncMessage('✅ 已上传 ' + tasks.length + ' 项数据到云端', 'success');
+                    } else {
+                        setSyncStatus('error', '上传失败');
+                        showSyncMessage('❌ 上传失败', 'error');
+                    }
+                } else if (hasCloudData && hasLocalData) {
+                    // 两端都有数据 → 合并
+                    showSyncMessage('🔀 合并数据...', '');
+                    var merged = await syncMergeCore();
+                    if (merged) {
+                        setSyncStatus('synced', '已同步');
+                        showSyncMessage('✅ 数据已合并同步', 'success');
+                        render();
+                    } else {
+                        setSyncStatus('error', '合并失败');
+                        showSyncMessage('❌ 合并失败', 'error');
+                    }
                 } else {
-                    setSyncStatus('error', '同步失败');
-                    showSyncMessage('❌ 同步失败，请检查网络', 'error');
+                    // 两端都为空
+                    setSyncStatus('', '已配置');
+                    showSyncMessage('ℹ️ 暂无数据，请新建日程', '');
                 }
+
             } catch (e) {
-                setSyncStatus('error', '同步失败');
-                showSyncMessage('❌ 同步失败：' + e.message, 'error');
+                console.error('配置保存失败:', e);
+                setSyncStatus('error', '配置失败');
+                showSyncMessage('❌ 配置失败：' + e.message, 'error');
             }
+
             closeWebDAVModal();
         }
 
@@ -1940,7 +2172,7 @@
             if (webdavConfig.user && webdavConfig.pass) {
                 setSyncStatus('syncing', '加载中...');
                 try {
-                    var loaded = await loadFromWebDAV(false); // 不强制覆盖
+                    var loaded = await loadFromWebDAV(false);
                     if (loaded) {
                         setSyncStatus('synced', '已同步');
                         showSyncMessage('✅ 已从云端加载数据', 'success');
