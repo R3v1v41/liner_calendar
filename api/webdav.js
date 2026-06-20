@@ -77,18 +77,16 @@ export default async function handler(req, res) {
 
         const response = await fetch(targetUrl, fetchOptions);
 
-        // 4. 获取响应
+        // 4. 获取响应（★ 坚果云可能不返回 application/json，需要智能解析）
         let responseData;
-        const contentType = response.headers.get('content-type');
+        const rawText = await response.text();
 
-        if (contentType && contentType.includes('application/json')) {
-            try {
-                responseData = await response.json();
-            } catch (e) {
-                responseData = await response.text();
-            }
-        } else {
-            responseData = await response.text();
+        // 尝试解析为JSON（无论Content-Type如何）
+        try {
+            responseData = JSON.parse(rawText);
+        } catch (e) {
+            // 不是JSON，保留原始文本
+            responseData = rawText;
         }
 
         console.log('✅ [代理] 响应: ' + response.status + ' ' + response.statusText);
