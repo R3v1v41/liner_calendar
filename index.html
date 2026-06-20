@@ -1598,15 +1598,15 @@
                 var localAll = tasks.filter(function(t) { return t.id && t.startDate && t.endDate; });
                 console.log('💻 本地:', localActive.length, '项(活跃),', localAll.length, '项(全部), 设备:', DEVICE_ID);
 
-                // 双方都为空（比较活跃数据）
-                if (localActive.length === 0 && cloudTasks.length === 0) {
+                // 双方都为空（全量检查，含墓碑）
+                if (localAll.length === 0 && cloudTasks.length === 0) {
                     console.log('📭 双方都无数据');
                     return true;
                 }
 
-                // 仅云端有数据
-                if (localActive.length === 0 && cloudTasks.length > 0) {
-                    console.log('📥 本地为空，加载云端 ' + cloudTasks.length + ' 项');
+                // 仅云端有数据（★ 本地全量为空才是真正空设备，有墓碑必须走合并）
+                if (localAll.length === 0 && cloudTasks.length > 0) {
+                    console.log('📥 本地全空，加载云端 ' + cloudTasks.length + ' 项');
                     tasks = cloudTasks.filter(function(t) { return t.deleted !== true; });
                     normalizeTasks();
                     saveTasksToStorage();
