@@ -2307,70 +2307,68 @@
         
         */
 
-        // ===== Vercel 代理请求函数（修复版） =====
+        // ===== Vercel 代理请求函数（修复版 - 确保 JSON 格式） =====
         async function webdavProxyRequest(method, url, headers, body) {
             var proxyUrl = PROXY_URL;
 
-            // 构建请求头 - 确保 x-target-url 正确传递
-            var requestHeaders = {
-                'x-target-url': url,
-                'authorization': headers['Authorization'] || '',
-                'content-type': headers['Content-Type'] || 'application/json',
-                'depth': headers['Depth'] || '0'
+            // 构建请求体 - 必须为 JSON 格式
+            var requestBody = {
+                method: method,
+                url: url,
+                headers: {
+                    'Authorization': headers['Authorization'] || '',
+                    'Content-Type': headers['Content-Type'] || 'application/json'
+                }
             };
 
-            var fetchOptions = {
-                method: 'POST',
-                headers: requestHeaders
-            };
-
+            // 如果有 body，添加到请求体中
             if (body) {
-                fetchOptions.body = body;
+                requestBody.body = body;
             }
 
             try {
                 console.log('🔄 代理请求:', method, url);
-                console.log('📤 请求头:', requestHeaders);
 
                 var controller = new AbortController();
                 var timeoutId = setTimeout(function() { controller.abort(); }, 30000);
-                fetchOptions.signal = controller.signal;
 
-                var response = await fetch(proxyUrl, fetchOptions);
+                var response = await fetch(proxyUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody),
+                    signal: controller.signal
+                });
+
                 clearTimeout(timeoutId);
 
                 console.log('📡 代理响应状态:', response.status);
 
-                // 检查响应是否为 JSON
-                var contentType = response.headers.get('content-type') || '';
+                // 解析响应
                 var result;
+                var text = await response.text();
 
-                if (contentType.includes('application/json')) {
-                    result = await response.json();
-                } else {
-                    var text = await response.text();
-                    console.warn('⚠️ 非JSON响应:', text);
-                    // 尝试解析为JSON
-                    try {
-                        result = JSON.parse(text);
-                    } catch (e) {
-                        result = { error: 'Invalid JSON response', raw: text };
-                    }
+                try {
+                    result = JSON.parse(text);
+                } catch (e) {
+                    result = { error: 'Invalid JSON response', raw: text };
                 }
 
                 if (!response.ok) {
-                    throw new Error('Proxy error ' + response.status + ': ' + JSON.stringify(result));
+                    throw new Error('Proxy error ' + response.status + ': ' + (result.error || JSON.stringify(result)));
                 }
 
+                // 构建模拟的 Response 对象
                 return {
                     ok: result.status >= 200 && result.status < 300,
                     status: result.status,
-                    statusText: result.statusText,
+                    statusText: result.statusText || '',
                     headers: new Headers(result.headers || {}),
-                    json: async function() { return result.data || result; },
+                    json: async function() { return result.data; },
                     text: async function() {
-                        if (typeof result === 'string') return result;
-                        return JSON.stringify(result);
+                        if (typeof result.data === 'string') return result.data;
+                        return JSON.stringify(result.data);
                     }
                 };
             } catch (error) {
