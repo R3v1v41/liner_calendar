@@ -1575,17 +1575,19 @@
                 });
 
                 // ★ 第二步：准备本地数据
-                var localTasks = tasks.filter(function(t) { return t.deleted !== true; });
-                console.log('💻 本地:', localTasks.length, '项, 设备:', DEVICE_ID);
+                var localActive = tasks.filter(function(t) { return t.deleted !== true; });
+                // 合并时传入全量（含已删除），以便删除状态正确传播
+                var localAll = tasks.filter(function(t) { return t.id && t.startDate && t.endDate; });
+                console.log('💻 本地:', localActive.length, '项(活跃),', localAll.length, '项(全部), 设备:', DEVICE_ID);
 
-                // 双方都为空
-                if (localTasks.length === 0 && cloudTasks.length === 0) {
+                // 双方都为空（比较活跃数据）
+                if (localActive.length === 0 && cloudTasks.length === 0) {
                     console.log('📭 双方都无数据');
                     return true;
                 }
 
                 // 仅云端有数据
-                if (localTasks.length === 0 && cloudTasks.length > 0) {
+                if (localActive.length === 0 && cloudTasks.length > 0) {
                     console.log('📥 本地为空，加载云端 ' + cloudTasks.length + ' 项');
                     tasks = cloudTasks.filter(function(t) { return t.deleted !== true; });
                     normalizeTasks();
@@ -1598,18 +1600,19 @@
                 }
 
                 // 仅本地有数据，云端为空
-                if (localTasks.length > 0 && cloudTasks.length === 0) {
-                    console.log('📤 云端为空，上传本地 ' + localTasks.length + ' 项');
+                if (localActive.length > 0 && cloudTasks.length === 0) {
+                    console.log('📤 云端为空，上传本地 ' + localActive.length + ' 项');
                     return await syncToWebDAVWithRetry(2);
                 }
 
                 // ★ 双方都有数据 → 合并
-                console.log('🔀 三方合并：云端' + cloudTasks.length + ' + 本地' + localTasks.length);
-                var merged = mergeTasksMultiDevice(cloudTasks, localTasks);
+                console.log('🔀 三方合并：云端' + cloudTasks.length + ' + 本地' + localActive.length);
+                // ★ 使用 localAll（含已删除任务），确保删除状态正确传播到云端
+                var merged = mergeTasksMultiDevice(cloudTasks, localAll);
 
                 if (merged.length === 0) {
                     console.error('❌ 合并结果为空，保留本地数据');
-                    merged = localTasks.filter(function(t) { return t.deleted !== true; });
+                    merged = localActive.filter(function(t) { return t.deleted !== true; });
                     if (merged.length === 0) {
                         merged = cloudTasks.filter(function(t) { return t.deleted !== true; });
                     }
@@ -1769,8 +1772,8 @@
                         // ★ 重新获取云端最新数据并合并
                         var cloudMeta = await fetchCloudMeta();
                         if (cloudMeta && cloudMeta.exists && cloudMeta.tasks.length > 0) {
-                            var localActive = tasks.filter(function(t) { return t.deleted !== true; });
-                            tasks = mergeTasksMultiDevice(cloudMeta.tasks, localActive);
+                            var localAllRT = tasks.filter(function(t) { return t.id && t.startDate && t.endDate; });
+                            tasks = mergeTasksMultiDevice(cloudMeta.tasks, localAllRT);
                             normalizeTasks();
                             saveTasksToStorage();
                             render();
@@ -1915,9 +1918,9 @@
                     tasks = cloudTasks.concat(localOnly);
                     console.log('📥 覆盖下载: 云端' + cloudTasks.length + ' + 本地独有' + localOnly.length);
                 } else {
-                    // 合并模式
-                    var localActive = tasks.filter(function(t) { return t.deleted !== true; });
-                    tasks = mergeTasksMultiDevice(cloudTasks, localActive);
+                    // 合并模式（传入含已删除的本地数据，确保删除状态传播）
+                    var localAll = tasks.filter(function(t) { return t.id && t.startDate && t.endDate; });
+                    tasks = mergeTasksMultiDevice(cloudTasks, localAll);
                     console.log('📥 合并下载: 结果' + tasks.length + ' 项');
                 }
 
