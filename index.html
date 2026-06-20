@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>年度线性日历</title>
+    <title>年度线性日历 v2.2</title>
     <link rel="manifest" href="./manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1192,8 +1192,9 @@
                 if (t.text === undefined) t.text = '';
                 if (!t.color) t.color = defaultColor;
                 if (!t.createdAt) t.createdAt = now;
-                if (!t.createdBy) t.createdBy = DEVICE_ID;
-                if (!t.updatedBy) t.updatedBy = DEVICE_ID;
+                // ★ 不覆盖已有的设备信息；缺失时标记为 legacy（来自旧版本数据）
+                if (!t.createdBy) t.createdBy = 'legacy';
+                if (!t.updatedBy) t.updatedBy = t.createdBy || 'legacy';
                 if (!t.version) t.version = 1;
             });
         }
@@ -1497,8 +1498,8 @@
                         showSyncMessage('❌ 合并上传失败', 'error');
                     }
                 } else {
-                    // 云端无数据，安全上传
-                    var uploaded = await syncToWebDAV();
+                    // 云端无数据，安全上传（使用ETag重试防止并发首发冲突）
+                    var uploaded = await syncToWebDAVWithRetry(2);
                     if (uploaded) {
                         setSyncStatus('synced', '已上传');
                         showSyncMessage('✅ 数据已上传到云端', 'success');
@@ -1895,8 +1896,9 @@
                 }
 
                 var data = await response.json();
+                console.log('📥 [下载] 数据类型:', typeof data, '是否为数组:', Array.isArray(data));
                 if (!data || !data.tasks) {
-                    console.log('📄 云端数据为空');
+                    console.log('📄 云端数据为空或格式异常', typeof data, data ? Object.keys(data) : 'null');
                     return true;
                 }
 
@@ -1940,26 +1942,7 @@
             }
         }
 
-        async function fetchCloudData() {
-            if (!webdavConfig.user || !webdavConfig.pass) return null;
-            try {
-                var headers = { 'Authorization': 'Basic ' + btoa(webdavConfig.user + ':' + webdavConfig.pass) };
-                var response = await webdavProxyRequest('GET', webdavConfig.url, headers, null);
-                if (!response.ok) {
-                    if (response.status === 404) return null;
-                    throw new Error('HTTP ' + response.status);
-                }
-                var data = await response.json();
-                if (data && data.syncVersion) {
-                    cloudSyncVersion = data.syncVersion;
-                    try { localStorage.setItem('calendar_cloud_version', cloudSyncVersion); } catch (e) {}
-                }
-                return data;
-            } catch (e) {
-                console.warn('获取云端数据失败:', e.message);
-                return null;
-            }
-        }
+        // （fetchCloudData 已废弃，请使用 fetchCloudMeta）
 
         // ============================================================
         // 编辑任务
