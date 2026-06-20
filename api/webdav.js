@@ -1,12 +1,12 @@
 // api/webdav.js
 // Vercel Serverless 函数 - 坚果云 WebDAV 代理
-// 修复版：从 JSON body 读取 targetUrl 和 auth
+// 修复版 v2：从 JSON body 读取 targetUrl 和 auth，正确的作用域
 
 export default async function handler(req, res) {
     // 1. CORS 头
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, HEAD, OPTIONS, PROPFIND, POST');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-target-url, x-device-id, Depth');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-target-url, x-device-id, Depth, If-Match, If-None-Match');
 
     // 预检请求
     if (req.method === 'OPTIONS') {
@@ -14,8 +14,10 @@ export default async function handler(req, res) {
         return;
     }
 
-    // 2. 从 JSON body 中解析参数（客户端将 targetUrl 和 auth 放在 body 里）
+    // 2. 从 JSON body 中解析参数
+    //    所有变量在 try 外部声明，确保后续代码可访问
     let targetUrl, method, auth, requestBody;
+    let ifMatch, ifNoneMatch, depth;
 
     try {
         const payload = req.body || {};
@@ -23,9 +25,14 @@ export default async function handler(req, res) {
         method = payload.method || 'GET';
         requestBody = payload.body || null;
 
-        // auth 在 payload.headers.Authorization 或 payload.headers.authorization 中
+        // 客户端 headers（Authorization, If-Match 等）
         const clientHeaders = payload.headers || {};
         auth = clientHeaders['Authorization'] || clientHeaders['authorization'] || '';
+
+        // 保存条件请求头，稍后转发到坚果云
+        ifMatch = clientHeaders['If-Match'] || null;
+        ifNoneMatch = clientHeaders['If-None-Match'] || null;
+        depth = clientHeaders['Depth'] || null;
     } catch (e) {
         console.error('❌ 解析请求体失败:', e);
         return res.status(400).json({ error: 'Invalid request body', message: e.message });
@@ -43,19 +50,18 @@ export default async function handler(req, res) {
 
     // 3. 构建转发到坚果云的请求
     try {
-        const clientHeaders = payload.headers || {};
         const fetchHeaders = {
             'Authorization': auth
         };
 
-        // 转发客户端附加的 HTTP 头（ETag锁、条件请求等）
-        if (clientHeaders['If-Match']) fetchHeaders['If-Match'] = clientHeaders['If-Match'];
-        if (clientHeaders['If-None-Match']) fetchHeaders['If-None-Match'] = clientHeaders['If-None-Match'];
-        if (clientHeaders['Depth']) fetchHeaders['Depth'] = clientHeaders['Depth'];
+        // 转发客户端附加的 HTTP 头
+        if (ifMatch) fetchHeaders['If-Match'] = ifMatch;
+        if (ifNoneMatch) fetchHeaders['If-None-Match'] = ifNoneMatch;
+        if (depth) fetchHeaders['Depth'] = depth;
 
-        // 对于有 body 的请求，设置 Content-Type
+        // 有 body 时设置 Content-Type
         if (requestBody) {
-            fetchHeaders['Content-Type'] = clientHeaders['Content-Type'] || 'application/json';
+            fetchHeaders['Content-Type'] = 'application/json';
         }
 
         const fetchOptions = {
@@ -67,7 +73,7 @@ export default async function handler(req, res) {
             fetchOptions.body = typeof requestBody === 'string' ? requestBody : JSON.stringify(requestBody);
         }
 
-        console.log(`🔄 [代理] ${method} ${targetUrl}`);
+        console.log('🔄 [代理] ' + method + ' ' + targetUrl);
 
         const response = await fetch(targetUrl, fetchOptions);
 
@@ -85,15 +91,24 @@ export default async function handler(req, res) {
             responseData = await response.text();
         }
 
-        console.log(`✅ [代理] 响应: ${response.status} ${response.statusText}`);
+        console.log('✅ [代理] 响应: ' + response.status + ' ' + response.statusText);
 
-        // 5. 返回给客户端
+        // 5. 返回给客户端（包含 ETag 等关键响应头）
+        const responseHeaders = {};
+        try {
+            // 提取关键响应头
+            const etag = response.headers.get('etag') || response.headers.get('ETag');
+            if (etag) responseHeaders['etag'] = etag;
+        } catch (e) {
+            // headers 迭代可能失败，忽略
+        }
+
         res.status(200).json({
             ok: response.ok,
             status: response.status,
             statusText: response.statusText,
             data: responseData,
-            headers: Object.fromEntries(response.headers.entries())
+            headers: responseHeaders
         });
 
     } catch (error) {
