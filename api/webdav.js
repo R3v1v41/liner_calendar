@@ -48,6 +48,12 @@ export default async function handler(req, res) {
         return res.status(401).json({ error: 'Missing authorization in request body headers' });
     }
 
+    // ★ 安全限制：仅允许转发到坚果云 WebDAV
+    if (!targetUrl.startsWith('https://dav.jianguoyun.com/')) {
+        console.error('❌ 非法的目标URL: ' + targetUrl);
+        return res.status(403).json({ error: 'Forbidden: only jianguoyun.com WebDAV is allowed' });
+    }
+
     // 3. 构建转发到坚果云的请求
     try {
         const fetchHeaders = {

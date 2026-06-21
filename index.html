@@ -8,6 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="年度日历">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://liner-calendar.vercel.app https://dav.jianguoyun.com https://cdn.jsdelivr.net; img-src 'self' data:; font-src 'self' data:;">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
     <style>
         /* ===== 全局重置 & 主题变量 ===== */
@@ -1165,6 +1166,12 @@
             return h.toString(36);
         }
         function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+        // HTML 转义（防XSS）
+        function escapeHtml(str) {
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
         function cleanOldTombstones() {
             var thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
             var before = tasks.length;
@@ -2244,13 +2251,13 @@
                     var bar = occupied[col];
                     if (bar && col === bar.startCol) {
                         var colorKey = bar.color || defaultColor;
-                        var displayText = bar.text || '点击编辑';
+                        var displayText = escapeHtml(bar.text) || '点击编辑';
                         var isEmpty = !bar.text || bar.text.trim() === '';
                         var emptyClass = isEmpty ? 'empty-name' : '';
                         var span = Math.min(bar.endCol - bar.startCol + 1, MAX_COLS - bar.startCol);
 
                         html += '<div class="schedule-bar-cell" style="grid-column: span ' + span + ';">';
-                        html += '<div class="schedule-bar color-' + colorKey + ' ' + emptyClass + '" onclick="event.stopPropagation(); editTask(\'' + bar.task.id + '\')" oncontextmenu="showContextMenu(event, \'' + bar.task.id + '\')" title="' + (bar.text || '点击编辑') + '">';
+                        html += '<div class="schedule-bar color-' + colorKey + ' ' + emptyClass + '" onclick="event.stopPropagation(); editTask(\'' + bar.task.id + '\')" oncontextmenu="showContextMenu(event, \'' + bar.task.id + '\')" title="' + escapeHtml(bar.text || '点击编辑') + '">';
                         html += displayText;
                         html += '<span class="schedule-delete-btn" onclick="event.stopPropagation(); deleteTaskDirect(\'' + bar.task.id + '\', event)">×</span>';
                         html += '</div></div>';
